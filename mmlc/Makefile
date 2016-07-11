@@ -7,7 +7,7 @@ CLANG	= 1
 #WIN32	= 1
 #x86	= 1
 
-TARGET	= mmlconv
+TARGET	= mmlc
 
 ifdef CLANG
 ifdef WIN32
