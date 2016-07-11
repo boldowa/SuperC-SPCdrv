@@ -1,0 +1,46 @@
+/**
+ * SuperC ID666 define
+ *
+ *
+ */
+
+.bank 0 slot 0
+.org 0
+
+.ifdef _MAKESPC
+.section "__ID666HDR" size 256 force
+	.db   "SNES-SPC700 Sound File Data v0.30"
+	.db   26,26
+	.db   26            ; header contains ID666 information
+	.db   30            ; Version miner(.30)
+	.dw   Start         ; PC
+	.db   0,0,0         ; A,X,Y
+	.db   0,0           ; PSW, SP
+	.db   0,0           ; reserved
+
+;********* text format **********
+
+; SongTitle / GameTitle / NameOfDumper / Comments
+	.dsb  112 0
+
+; Date / Time / FadeTime
+	.dsb  19  0
+
+; Artist of song
+	.dsb  32  0
+
+; Default channel disables
+	.db   0             
+
+; Emulator
+	.db   0             
+
+.ends
+
+.else
+
+.section "__ID666HDR" size 256 force
+;	( Reserved )
+.ends
+
+.endif

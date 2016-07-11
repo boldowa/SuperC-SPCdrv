@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>mmlconv command reference</title>
+<link rel="stylesheet" type="text/css" href="base.css">
+</head>
+
+<body>
+<h1>SuperC mmlconv command reference</h1>
+<div class="syntax_note">
+  <p>Note: This mml distinguishes between upper - and lowercase letters</p>
+</div>
+<div class="mmlsyntax">
+  <table>
+    <tr>
+      <th>Command</th>
+      <th>Description</th>
+      <th>Implements</th>
+    </tr>
+
+    <tr>
+      <td>/* ... */</td>
+      <td>Multiline comment</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>//</td>
+      <td>Single line comment</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>#title ...</td>
+      <td>Set title of music</td>
+      <td class="noimp">×</td>
+    </tr>
+
+    <tr>
+      <td>#game ...</td>
+      <td>Set game title</td>
+      <td class="noimp">×</td>
+    </tr>
+
+    <tr>
+      <td>#composer ...</td>
+      <td>Set music composer name</td>
+      <td class="noimp">×</td>
+    </tr>
+
+    <tr>
+      <td>#dumper ...</td>
+      <td>Set SPC Dumper info</td>
+      <td class="noimp">×</td>
+    </tr>
+
+    <tr>
+      <td>#comment ...</td>
+      <td>Set SPC Comment</td>
+      <td class="noimp">×</td>
+    </tr>
+
+    <tr>
+      <td>#track ...</td>
+      <td>Set track (1 ~ 10)</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>#timebase ...</td>
+      <td>Set resolution of SPC<br>default is 48(0x30)</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>#swap&lt;&gt;</td>
+      <td>Swap octave up/down</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>#macro <b>MACRONAME</b> ...</td>
+      <td>Define replace macro<br>ex. #macro MACNAME @2</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>$(<b>MACRONAME</b>)</td>
+      <td>Expand the specified macro</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>(0)x<b>nn</b></td>
+      <td>Specify hex value<br>ex.0xef, x3f</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>o</td>
+      <td>Specify octave</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>&lt;</td>
+      <td>Octave up/down<br>Default is down</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>&gt;</td>
+      <td>Octave up/down<br>Default is up</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>c,d,e,f,g,a,b</td>
+      <td>Note<br>You can also use '+'(sharp) and '-'(flat)</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>r</td>
+      <td>Rest</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>^</td>
+      <td>Tie</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>/</td>
+      <td>Specify music loop point<br>Default, music isn't loop</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>q<b>n1</b></td>
+      <td>Set gatetime ratio<br>You can specify 1 ~ 8<br>Means: 1 = 12.5%, 2 = 25%, 3 = 37.5% ... 8 = 100%<br>If note is long(more than 96ticks), ratio becoms sloppy.</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>k<b>n1</b></td>
+      <td>Set velocity<br>You can specify 1 ~ 16<br>Means: 1 = 6.25%, 2 = 12.5%, 3 = 18.75% ... 16 = 100%</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>@<b>n1</b></td>
+      <td>Set instrument</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>p<b>n1</b>(,<b>n2</b>)</td>
+      <td>Set panpot</td>
+      <td class="wip">△</td>
+    </tr>
+
+    <tr>
+      <td>v<b>n1</b>(,<b>n2</b>)</td>
+      <td>Set channel volume</td>
+      <td class="wip">△</td>
+    </tr>
+
+    <tr>
+      <td>V<b>n1</b>(,<b>n2</b>)</td>
+      <td>Set master volume</td>
+      <td class="wip">△</td>
+    </tr>
+
+    <tr>
+      <td>m<b>n1</b>,<b>n2</b>(,<b>n3</b>)</td>
+      <td>Set moduration</td>
+      <td class="noimp">×</td>
+    </tr>
+
+    <tr>
+      <td>t<b>n1</b>(,<b>n2</b>)</td>
+      <td>Set Tempo<br>Specify the value of bpm.</td>
+      <td class="wip">△</td>
+    </tr>
+
+    <tr>
+      <td>X<b>n1</b></td>
+      <td>Sequence command direct insert</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>%d(<b>n1</b>)</td>
+      <td>Enable / Disable drum set<br>%d ... enable / %d0 ... disable</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>%e(<b>n1</b>)</td>
+      <td>Enable / Disable ch-echo<br>%e ... enable / %e0 ... disable</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>%p(<b>n1</b>)</td>
+      <td>Enable / Disable portament<br>%p ... enable / %p0 ... disable</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>%r<b>n1</b>,<b>n2</b></td>
+      <td>Enable / Disable reverse surround<br>n1 ... Left / %n2 ... Right // 1=on, 0=off</td>
+      <td>○</td>
+    </tr>
+
+  </table>
+</div>
+
+</body></html>

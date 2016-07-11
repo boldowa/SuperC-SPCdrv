@@ -1,0 +1,31 @@
+/**
+ * SuperC MusicTable
+ *
+ *
+ */
+
+.section "VelocityTable" free
+
+VelocityTable:
+	.db	$08, $10, $18, $20
+	.db	$28, $30, $38, $40
+	.db	$48, $50, $58, $60
+	.db	$68, $70, $78, $7f
+	/*
+	.db	$0b, $16, $21, $2c
+	.db	$37, $42, $4d, $58
+	.db	$63, $6e, $79, $84
+	.db	$8f, $9a, $a5, $b0
+	*/
+
+.ends
+
+
+.section "GateTable" free
+
+GateTable:
+	.db	$20, $40, $60, $80
+	.db	$a0, $c0, $e0, $ff
+
+.ends
+

@@ -1,0 +1,26 @@
+/**
+ * SuperC MiscTables
+ *
+ *
+ */
+
+.section "ChBitTable" free
+
+ChBitTable:
+	.db	$01, $02, $04, $08
+	.db	$10, $20, $40, $80
+
+.ends
+
+.section "TONE_TABLE" free
+
+ToneTable:
+
+.dstruct	Tone00 INSTANCEOF stTone 1, 2, $ff, $f0, $fb
+.dstruct	Tone01 INSTANCEOF stTone 2, 3, $ff, $f0, $fb
+.dstruct	Tone02 INSTANCEOF stTone 3, 1, $ff, $e0, $fb
+.dstruct	Tone03 INSTANCEOF stTone 4, 1, $ff, $e0, $fb
+.dstruct	Tone04 INSTANCEOF stTone 5, 1, $ee, $6a, $f8
+
+.ends
+

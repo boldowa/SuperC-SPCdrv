@@ -1,0 +1,51 @@
+/**
+ * SuperC BRR read Macro
+ *
+ *
+ */
+
+.ifndef _READBRR_MAC
+.define _READBRR_MAC
+
+.define CurBrrPt	(DIR << 8 + $100)
+
+.macro DirInfo args fname
+; --- BRR情報読出し
+	.fopen fname fp
+	.fsize fp sz
+	.fread fp loopL
+	.fread fp loopH
+	.fclose fp
+
+; --- DIR書き出し
+	.dw	CurBrrPt
+	.dw	(CurBrrPt + (loopH<<8) + loopL)
+
+; --- 定義の後始末
+	.redefine CurBrrPt CurBrrPt+(sz-2)
+	.undefine sz, loopL, loopH
+.endm
+
+.macro BrrData args fname
+	.fopen fname fp
+	.fsize fp sz
+
+	; --- BRRヘッダ情報読み捨て
+	.repeat 2
+	.fread fp dt
+	.endr
+
+	; --- brr読出し
+	.repeat (sz-2)
+	.fread fp dt
+	.db	dt
+	.endr
+
+	.fclose fp
+
+; --- 定義の後始末
+	.undefine sz, dt
+.endm
+
+.endif
+

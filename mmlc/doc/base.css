@@ -1,0 +1,39 @@
+@charset "utf-8";
+
+html{
+  height: 100%;
+  line-height: 1.2em;
+  font-family: Consolas, Arial, sans-serif;
+}
+
+body {
+  color: white;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 20px;
+  background: linear-gradient(to bottom, #000000, #404040);
+  background-attachment: fixed;
+}
+
+div {
+  margin-left: 20px;
+}
+
+table, th, td {
+  border: 2px white solid;
+  border-collapse: collapse;
+  padding: 5px;
+}
+
+.mmlsyntax b {
+  color: yellow;
+}
+
+.wip {
+  background: blue;
+}
+
+.noimp {
+  background: red;
+}

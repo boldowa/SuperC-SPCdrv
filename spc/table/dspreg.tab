@@ -1,0 +1,32 @@
+/**
+ * SuperC DSP register default values
+ *
+ *
+ */
+
+.bank 4 slot 4
+.org 0
+
+.ifdef _MAKESPC
+.section "___DSPReg" size 256 force
+;       DSP: 0x00 ～ 0x5c : 0 fill
+	.dsb $5d 0
+;       DSP: 0x5d : DIR
+	.db   DIR
+;       DSP: 0x5e ～ 0x6b : 0 fill
+	.dsb 15 0
+;	DSP 0x6c : FLG
+	.db   $ff
+;	DSP 0x6d : ESA
+	.db   $ff
+;       DSP: 0x6e ～ 0xff : 0 fill
+	.dsb $91 0
+.ends
+
+.else
+
+.section "___DSPReg" size 256 force
+;	( Reserved )
+.ends
+
+.endif
