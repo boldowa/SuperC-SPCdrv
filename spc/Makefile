@@ -7,7 +7,7 @@
 AS   = wla-spc700
 
 LINK = wlalink
-LFLAGS = -bdvS
+LFLAGS = -b -d -v -S
 ASFLAGS =
 
 
@@ -19,8 +19,8 @@ OBJS = main.o io.o music.o seqcmd.o se.o dsp.o seq_data.o brr.o
 
 
 ifdef MAKESPC
-  ASFLAGS += -D_MAKESPC
-  LFLAGS = -rdvS
+  ASFLAGS += -D _MAKESPC
+  LFLAGS = -r -d -v -S
   TARGET := $(TARGET:.bin=.spc)
 endif
 
@@ -40,20 +40,20 @@ spc:
 
 .SUFFIXES: .o .lib .s .asm
 .s.o:
-	$(AS) -oM $(ASFLAGS) $< >$(@:.o=.d)
-	$(AS) -o $(ASFLAGS) $< $@
+	$(AS) -M $(ASFLAGS) -o $@ $< >$(@:.o=.d)
+	$(AS) $(ASFLAGS) -o $@ $<
 
 .asm.o:
-	$(AS) -oM $(ASFLAGS) $< >$(@:.o=.d)
-	$(AS) -o $(ASFLAGS) $< $@
+	$(AS) -M $(ASFLAGS) -o $@ $< >$(@:.o=.d)
+	$(AS) $(ASFLAGS) -o $@ $<
 
 .s.lib:
-	$(AS) -lM $(ASFLAGS) $< >$(@:.lib=.d)
-	$(AS) -l $< $@
+	$(AS) -M $(ASFLAGS) -l $@ $< >$(@:.lib=.d)
+	$(AS) $(ASFLAGS) -l $@ $<
 
 .asm.lib:
-	$(AS) -lM $(ASFLAGS) $< >$(@:.lib=.d)
-	$(AS) -l $(ASFLAGS) $< $@
+	$(AS) -M $(ASFLAGS) -l $@ $< >$(@:.lib=.d)
+	$(AS) $(ASFLAGS) -l $@ $<
 
 -include *.d
 
