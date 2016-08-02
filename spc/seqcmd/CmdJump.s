@@ -4,13 +4,6 @@
  *
  */
 
-;------------------------------
-; local values
-;------------------------------
-.enum	$00
-	XXXXX		db
-.ende
-
 
 CmdJump:
 	call	readSeq
@@ -18,13 +11,5 @@ CmdJump:
 	call	readSeq
 	mov	y, a
 	pop	a
-	call	SetRelativePointer
-	ret
-
-
-;------------------------------
-; local values undefine
-;------------------------------
-.undefine	XXXXX
-
+	jmp	SetRelativePointer
 

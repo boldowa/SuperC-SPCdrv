@@ -1,0 +1,9 @@
+# Prerequisites
+*.d
+
+# tags
+tags
+
+# music macro lang for test
+*.mml
+

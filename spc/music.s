@@ -69,6 +69,13 @@ _Loop:
 _EndRoutine:
 	ret
 
+;--------------------------------------------------
+; MusicProcess - ANALYZE SEQUENCE PROCESS
+;   Level       : 2 (Main Sub)
+;   Input       : none
+;   Output      : none
+;   Description : シーケンスデータを解析する
+;--------------------------------------------------
 /****************************************
  *
  * シーケンス解析処理
@@ -247,7 +254,7 @@ _JudgeTieRest:
 _JudgeDrum:
 	cmp	a, #SEQCMD_START
 	bpl	_Commands
-	; todo - Drum Note($ca ~ SEQCMD_START-1, 計10コ)
+	; todo - Drum Note($ca ~ SEQCMD_START-1, 計7コ)
 	call	LookAheadTie
 	ret
 
@@ -311,40 +318,59 @@ readSeq:
 
 /****************************************
  *
- * 相対アドレスセット
+ * シーケンスアドレスの計算
  *
  ****************************************/
 SetRelativePointer:
-	addw	ya, lSeqPointer
+	addw	ya, seqBaseAddress
 	movw	lSeqPointer, ya
 	ret
 
-/****************************************
- *
- * シーケンス先読み処理(Tie用)
- *
- ****************************************/
+;--------------------------------------------------
+; MusicProcess - LOOK AHEAD TIE PROCESS
+;   Level       : 3 (Main Sub-Sub)
+;   Input       : none
+;   Output      : none
+;   Description : タイ用の先読み処理
+;                 次のNoteがTIEの場合に
+;                 KEYOFF対象外にする
+;--------------------------------------------------
 TieNothingToDo:
 	ret
 LookAheadTie:
 	movw	ya, lSeqPointer
-	beq     TieNothingToDo
+	beq     TieNothingToDo		; NULLの場合、処理なし
 	movw	$00, ya
 	push	x
 
+	; --- ループ先読みで変更する為
+	; --- ループ開始アドレスをバックアップ
+	push	x
+	mov	a, x
+	asl	a
+	mov	x, a
+	mov	a, loopStartAdrH+$100+x
+	mov	$03, a
+	mov	a, loopStartAdrH+$101+x
+	mov	$04, a
+	pop	x
+
 --	mov	y, #0
 -	mov	a, [lSeqPointer]+y
-	cmp	a, #$c8			; is tie?
-	beq	_Tie
-	and	a, #$ff
 	bmi	+
 	inc	y
 	bra	-
++	cmp	a, #$c8			; is tie?
+	beq	_Tie
 
 +	cmp	a, #SEQCMD_START
 	bmi	_NotTie
 	cmp	a, #CMD_JUMP
-	bne	+
+	beq	_lookJump
+	cmp	a, #CMD_SUBROUTINE
+	bne	_lookSubBreak
+	inc	y
+_lookJump:
 	inc	y
 	mov	a, y
 	mov	y, #0
@@ -354,7 +380,41 @@ LookAheadTie:
 	call	CmdJump
 	bra	--
 
-+	setc
+_lookSubBreak:
+	cmp	a, #CMD_SUBROUTINE_BREAK
+	bne	_lookSubReturn
+	push	x
+	setp
+	call	checkLoopNums
+	beq	_subreturn
+	pop	x
+	clrp
+	inc	y
+	bra	-
+_lookSubReturn:
++	cmp	a, #CMD_SUBROUTINE_RETURN
+	bne	_skipCmd
+	push	x
+	setp
+	call	checkLoopNums
+	bne	+
+_subreturn:
+	mov	a, #0
+	mov	loopStartAdrH+x, a
+	mov	a, loopReturnAdrH+x
+	mov	y, a
+	mov	a, loopReturnAdrL+x
+	bra	++
++	mov	a, loopStartAdrH+x
+	mov	y, a
+	mov	a, loopStartAdrL+x
+++	clrp
+	movw	lSeqPointer, ya
+	pop	x
+	jmp	--
+
+_skipCmd:
+	setc
 	sbc	a, #SEQCMD_START
 	mov	x, a
 	mov	a, y
@@ -393,6 +453,17 @@ _Tie:
 	or	a, #TRKFLG_TIE
 _Join:
 	mov	track.bitFlags+x, a
+
+	; --- ループ開始アドレスをリストア
+	push	x
+	mov	a, x
+	asl	a
+	mov	x, a
+	mov	a, $03
+	mov	loopStartAdrH+$100+x, a
+	mov	a, $04
+	mov	loopStartAdrH+$101+x, a
+	pop	x
 
 	movw	ya, $00
 	movw	lSeqPointer, ya

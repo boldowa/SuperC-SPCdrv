@@ -10,6 +10,5 @@
 --regex-WLASPC700=/^\s*([a-zA-Z_][a-zA-Z_0-9]*)\s+[dD][bBwWsS][bBwW]?\s*/\1/d,define/
 --regex-WLASPC700=/^\s*([a-zA-Z_][a-zA-Z_0-9]*)\s+[iI][nN][sS][tT][aA][nN][cC][eE][oO][fF]\s*/\1/d,define/
 --excmd=number
---exclude=*.bat
 --exclude=Makefile
 

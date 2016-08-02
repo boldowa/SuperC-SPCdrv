@@ -12,7 +12,6 @@
  */
 bool bininit(BinMan* bin)
 {
-	int bufctr;
 
 	if(bin == NULL)
 	{
@@ -34,10 +33,7 @@ bool bininit(BinMan* bin)
 	/* バイナリデータを初期化します */
 	bin->dataInx = 0;
 	bin->ismax = false;
-	for(bufctr= 0; bufctr < DATA_MAX_SIZE; bufctr++)
-	{
-		bin->data[bufctr] = 0;
-	}
+	memset(bin->data, 0, DATA_MAX_SIZE);
 
 	return true;
 }

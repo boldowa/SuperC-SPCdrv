@@ -13,16 +13,26 @@
 .section "SEQ_DATA" force
 
 TrackHeader:
-	.dw	_Track1
-	.dw	_Track2
-	.dw	_Track3
-	.dw	_Track4
-	.dw	_Track5
-	.dw	_Track6
-	.dw	_Track7
-	.dw	_Track8
-	.dw	_Track9
-	.dw	_Track10
+	.dw	_Track1-TrackHeader
+	.dw	_Track2-TrackHeader
+	.dw	NULL
+	.dw	NULL
+	.dw	NULL
+	.dw	NULL
+	.dw	NULL
+	.dw	NULL
+	.dw	NULL
+	.dw	NULL
+	/*
+	.dw	_Track3-TrackHeader
+	.dw	_Track4-TrackHeader
+	.dw	_Track5-TrackHeader
+	.dw	_Track6-TrackHeader
+	.dw	_Track7-TrackHeader
+	.dw	_Track8-TrackHeader
+	.dw	_Track9-TrackHeader
+	.dw	_Track10-TrackHeader
+	*/
 
 _Track1:
 	.db	$60
@@ -31,6 +41,7 @@ _Track1:
 	.db	CMD_ECHO_PARAM, $c0, $04, $40
 _T1Lp:
 	.db	CMD_TEMPO, 45
+	.db	$00
 	.db	$c9, $c9
 	.db	CMD_TEMPO, 80
 	.db	$c9, $c9
@@ -41,7 +52,7 @@ _T1Lp:
 	.db	CMD_TEMPO, 20
 	.db	$c9, $c9
 	.db	CMD_JUMP
-	.dw	(_T1Lp-_T1End)
+	.dw	(_T1Lp-TrackHeader)
 _T1End:
 
 _Track5:
@@ -76,8 +87,10 @@ _Join:
 	.db	$b0, $bc
 	.db	CMD_PAN, $e0
 	.db	$b0, $c9
+	.db	CMD_SUBROUTINE, 0
+	.dw	(_Sub1-TrackHeader)
 	.db	CMD_JUMP
-	.dw	(_Join-_Track2End)
+	.dw	(_Join-TrackHeader)
 _Track2End:
 
 _Track3:
@@ -86,7 +99,7 @@ _Track3:
 	.db	CMD_SET_INST, $04
 	.db	CMD_VOLUME, $80
 	.db	CMD_JUMP
-	.dw	(_Join-_Track3End)
+	.dw	(_Join-TrackHeader)
 _Track3End:
 
 _Track4:
@@ -95,7 +108,7 @@ _Track4:
 	.db	CMD_SET_INST, $04
 	.db	CMD_VOLUME, $40
 	.db	CMD_JUMP
-	.dw	(_Join-_Track4End)
+	.dw	(_Join-TrackHeader)
 _Track4End:
 
 _Track7:
@@ -104,7 +117,7 @@ _Track7:
 	.db	CMD_SET_INST, $04
 	.db	CMD_VOLUME, $20
 	.db	CMD_JUMP
-	.dw	(_Join-_Track7End)
+	.dw	(_Join-TrackHeader)
 _Track7End:
 
 _Track8:
@@ -113,7 +126,7 @@ _Track8:
 	.db	CMD_SET_INST, $04
 	.db	CMD_VOLUME, $10
 	.db	CMD_JUMP
-	.dw	(_Join-_Track8End)
+	.dw	(_Join-TrackHeader)
 _Track8End:
 
 _Track9:
@@ -141,7 +154,7 @@ _Track9:
 	.db	$06, $77
 	.db	$b8, $b8, $b8
 	.db	CMD_JUMP
-	.dw	(_Track9-_Track9End)
+	.dw	(_Track9-TrackHeader)
 _Track9End:
 
 _Track10:
@@ -156,5 +169,16 @@ _Track13:	; ƒ|ƒeƒg
 	.db	CMD_JUMP
 	.dw	(_Track13-_Track13End)
 _Track13End:
+
+_Sub1:
+	.db	$b0, $b0, $b0, $c9
+	.db	CMD_SUBROUTINE, 3
+	.dw	(_Sub2-TrackHeader)
+	.db	$a0
+	.db	CMD_SUBROUTINE_RETURN
+
+_Sub2:
+	.db	$bc, CMD_SUBROUTINE_BREAK, $c0
+	.db	CMD_SUBROUTINE_RETURN
 
 .ends

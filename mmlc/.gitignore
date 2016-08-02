@@ -1,0 +1,20 @@
+# Prerequisites
+*.d
+
+# Compiled Object
+*.o
+*.gch
+
+# tags
+tags
+
+# Linked object
+*.spc
+
+# Compiled seq Obect
+*.bin
+
+# Executable
+mmlc
+mmlc.exe
+

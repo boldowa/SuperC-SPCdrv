@@ -114,7 +114,7 @@ _Sound:
 	mov	sndTempoCounter, a
 	bcc	_Music
 
-	set1	rootSysFlags.1
+	set1	rootSysFlags.1		; 効果音解析中状態とします
 	call	SoundEffectProcess	; 効果音処理を行います
 	set1	rootSysFlags.0		; DSP更新を予約します
 
@@ -125,7 +125,7 @@ _Music:
 	mov	musicTempoCounter, a
 	bcc	_End
 
-	clr1	rootSysFlags.1
+	clr1	rootSysFlags.1		; 効果音解析中状態を解除します
 	call	MusicProcess		; 音楽処理を行います
 	set1	rootSysFlags.0		; DSP更新を予約します
 	
@@ -169,16 +169,30 @@ InitDebugSeqData:
 	mov	a, #0
 	mov	y, a
 	mov	x, a
--	mov	a, !TrackHeader+x
-	mov	track.seqPointerL+y, a
-	inc	x
-	mov	a, !TrackHeader+x
-	mov	track.seqPointerH+y, a
-	inc	x
+	; シーケンスのベース位置セット
+	mov     seqBaseAddress, #(TrackHeader & $ff)
+	mov     seqBaseAddress+1, #(TrackHeader >> 8)
+	; シーケンスアドレスの設定
+-	mov	a, [seqBaseAddress]+y
+	mov     $00, a
 	inc	y
-	cmp	x, #(MUSICTRACKS*2)
+	mov	a, [seqBaseAddress]+y
+	mov     $01, a
+	inc	y
+	push    y
+	movw    ya, $00
+	beq     +				; 空トラック
+	clrc
+	addw    ya, seqBaseAddress
+	mov	track.seqPointerL+x, a
+	mov     a, y
+	mov	track.seqPointerH+x, a
++	pop     y
+	inc	x
+	cmp	y, #(MUSICTRACKS*2)
 	bmi	-
 
+	; トラックデータの初期化
 	mov	x, #0
 	mov	y, #0
 -	mov	a, #$ff
@@ -199,7 +213,7 @@ InitDebugSeqData:
 	mov	SPC_REGDATA, #0
 	mov	musicGlobalVolume, #$ff
 ;	setc
-;	mov1	musicSysFlags.2, c
+;	mov1	musicSysFlags.2, c		; モノラル
 	mov	seChNums, #3
 	ret
 .ends

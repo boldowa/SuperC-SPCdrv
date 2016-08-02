@@ -18,6 +18,10 @@
 	adr		db
 	sr		db
 	gain		db
+	/**
+	 * チャンネルに割り当てられているTrack番号
+	 * 0xff(負数)で割り当てトラック無しとなる
+	 */
 	allocTrack	db
 .endst
 

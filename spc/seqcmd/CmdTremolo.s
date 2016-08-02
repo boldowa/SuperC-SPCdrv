@@ -1,11 +1,12 @@
 /**
- * SuperC SeqCmd PitchModulation
+ * SuperC SeqCmd Tremolo
  *
  *
  */
 
+/* TODO: ƒƒ‚ƒŠ’è‹`‚ÆÀ‘•‚Ì‘‚«Š·‚¦ */
 
-CmdPitchModulation:
+CmdTremolo:
 	call	readSeq
 	mov	track.modulationDelay+x, a
 	call	readSeq
@@ -16,7 +17,7 @@ CmdPitchModulation:
 -	mov	track.modulationDepth+x, a
 	ret
 
-CmdPitchModulationOff:
+CmdTremoloOff:
 	mov	a, #0
 	bra	-
 

@@ -7,7 +7,12 @@
 ;------------------------------
 ; local values
 ;------------------------------
-.define		tmpFlg	$00
+.enum $00
+	tmpFlg		db
+.ende
+;.enum $04
+;			dw
+;.ende
 
 CmdSetInstrument:
 	;--- read tone number

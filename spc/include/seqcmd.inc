@@ -1,5 +1,5 @@
 /**
- * SuperC
+ * SuperC Commands define
  *
  *
  */
@@ -10,7 +10,7 @@
 ;------------------------------------------------
 ; Command Start Point
 ;------------------------------------------------
-.define SEQCMD_START	$da
+.define SEQCMD_START	$d1
 
 ;------------------------------------------------
 ; Commands
@@ -28,6 +28,13 @@
 	CMD_ECHO_FIR		db
 	CMD_PORTAM_ON		db
 	CMD_PORTAM_OFF		db
+	CMD_MODURATION		db
+	CMD_MODURATION_OFF	db
+	CMD_TREMOLO		db
+	CMD_TREMOLO_OFF		db
+	CMD_SUBROUTINE		db
+	CMD_SUBROUTINE_RETURN	db
+	CMD_SUBROUTINE_BREAK	db
 .ende
 
 

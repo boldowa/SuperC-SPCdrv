@@ -9,6 +9,7 @@
 #include "mmlman.h"
 #include "binaryman.h"
 #include "errorman.h"
+#include "timefunc.h"
 
 enum{
 	OPT_Debug = 1,
@@ -203,6 +204,9 @@ int main(const int argc, const char** argv)
 	ErrorLevel errLevel = ERR_DEBUG;
 	MmlMan mml;
 	BinMan binary;
+	TIME startTime, endTime;
+
+	getTime(&startTime);
 
 	memset(&mml, 0, sizeof(MmlMan));
 	memset(&binary, 0, sizeof(BinMan));
@@ -276,7 +280,9 @@ int main(const int argc, const char** argv)
 	mmlclose(&mml);
 	binfree(&binary);
 	putdebug("########## COMPILE SUCCESS ##########");
-	puts("Complete.");
+
+	getTime(&endTime);
+	printf("Complete. Compiled in %.3f seconds.\n", getTimeToPass(&startTime, &endTime));
 
 	return 0;
 }

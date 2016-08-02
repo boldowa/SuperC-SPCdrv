@@ -4,12 +4,6 @@
  *
  */
 
-;------------------------------
-; local values
-;------------------------------
-.enum	$00
-	XXXXX		db
-.ende
 
 CmdEchoOff:
 	mov	a, #(TRKFLG_ECHO ~ $ff)
@@ -38,10 +32,5 @@ CmdEchoParam:
 	mov	SPC_REGADDR, #$0d
 	mov	SPC_REGDATA, a
 	ret
-
-;------------------------------
-; local values undefine
-;------------------------------
-.undefine	XXXXX
 
 

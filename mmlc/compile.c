@@ -13,8 +13,8 @@
 /* タイマ設定値 (SuperC アセンブリ定義に合わせる) */
 #define TIMER 16
 
-/* トラック数 (SuperC アセンブリ定義に合わせる) */
-#define TRACK_MAX 10
+/* サブルーチントラック数 */
+#define SUB_TRACKS 2
 
 /* 変換系関数用のテンポラリバッファ長 */
 #define TMP_BUFFER_SIZE 32
@@ -34,7 +34,7 @@
 enum commandlist{
 	/* ※注 : SuperCのinclude/seqcmd.inc 内の */
 	/*        コマンド定義順に合わせること    */
-	CMD_SET_INST	= 0xda,
+	CMD_SET_INST	= 0xd1,
 	CMD_VOLUME,
 	CMD_PAN,
 	CMD_JUMP,
@@ -46,13 +46,19 @@ enum commandlist{
 	CMD_ECHO_FIR,
 	CMD_PORTAM_ON,
 	CMD_PORTAM_OFF,
+	CMD_MODURATION,
+	CMD_MODURATION_OFF,
+	CMD_TREMOLO,
+	CMD_TREMOLO_OFF,
+	CMD_SUBROUTINE,
+	CMD_SUBROUTINE_RETURN,
+	CMD_SUBROUTINE_BREAK,
 };
 
 /**
  * 音階テーブル
  */
 static const byte SCALE_TABLE[] = {9, 11, 0, 2, 4, 5, 7};
-/*                                {a.  b, c, d, e, f, g} */
 
 /* トラックデータ */
 typedef struct stTrack
@@ -63,7 +69,7 @@ typedef struct stTrack
 typedef struct stTracksData
 {
 	word	loopAddr[TRACKS];
-	Track	track[TRACKS];
+	Track	track[TRACKS + SUB_TRACKS];
 	int	curTrack;
 
 	/*----- トラック毎のMML解析データ -----*/
@@ -104,7 +110,45 @@ typedef struct stTracksData
 	 * ドラムセット指定
 	 */
 	bool drumPart[TRACKS];
+
+	/**
+	 * トランスポーズ指定
+	 */
+	int transpose[TRACKS];
 } TracksData;
+
+/**
+ * ラベルのリスト
+ */
+typedef struct tag_stLabelNode {
+	int label;	/* ラベル番号 */
+	int depth;	/* ループ深度 */
+	int addr;	/* サブルーチン開始アドレス */
+
+	struct tag_stLoopList* left;
+	struct tag_stLoopList* right;
+} stLabelNode;
+
+/**
+ * サブルーチンのリストデータ
+ * データ一本化の際に、リストにあるアドレスを
+ * 再計算するために使う
+ */
+typedef struct tag_stSubroutineListData {
+	int depth;	/* ループ深度 */
+	int track;	/* コマンドのあるトラック */
+	int subaddr;	/* サブルーチンコマンドのアドレス */
+
+	struct tag_stSubroutineListData* next;
+} stSubroutineListData;
+
+/**
+ * サブルーチンのリスト
+ */
+typedef struct {
+	stSubroutineListData *root;
+	stSubroutineListData *cur;
+} stSubroutineList;
 
 /******************************************************************************/
 
@@ -136,6 +180,75 @@ typedef struct stTracksData
  */
 #define mmlCmpStr(mml, str)\
 	mmlcmpstr(mml, str, strlen(str))
+
+/**
+ * サブルーチンリストのデータを作成する
+ */
+stSubroutineListData* makeSubroutineListData(int depth, int track, int subaddr)
+{
+	stSubroutineListData *data = NULL;
+
+	data = (stSubroutineListData *)malloc(sizeof(stSubroutineListData));
+	if(NULL != data)
+	{
+		data->depth = depth;
+		data->track = track;
+		data->subaddr = subaddr;
+		data->next = NULL;
+	}
+
+	return data;
+}
+
+/**
+ * サブルーチンリストのデータを解放する
+ */
+void deleteSubroutineList(stSubroutineList* subList)
+{
+	stSubroutineListData *s, *t;
+
+	s = subList->root;
+
+	while(NULL != s)
+	{
+		t = s->next;
+		free(s);
+		s = t;
+	}
+
+	subList->root = NULL;
+	subList->cur = NULL;
+}
+
+/**
+ * サブルーチンリストにデータを追加する
+ */
+bool addSubroutineListData(stSubroutineList* subList, int depth, int track, int subaddr)
+{
+	/* 初回のデータ追加処理 */
+	if(NULL == subList->root)
+	{
+		subList->root = makeSubroutineListData(depth, track, subaddr);
+		if(NULL == subList->root)
+		{
+			return false;
+		}
+
+		subList->cur = subList->root;
+		return true;
+	}
+
+	/* 2つ目以降のデータ追加処理 */
+	subList->cur->next = makeSubroutineListData(depth, track, subaddr);
+	if(NULL == subList->cur->next)
+	{
+		return false;
+	}
+
+	/* リストのインクリメント */
+	subList->cur = subList->cur->next;
+	return true;
+}
 
 /**
  * 16進数値を取得する
@@ -392,7 +505,7 @@ bool calcSteps(int* ticks, int timebase, MmlMan* mml, ErrorNode* compileErrList)
 	return true;
 }
 
-bool putSeq(TracksData *tracks, const byte data, MmlMan *mml, ErrorNode* compileErrList)
+bool putSeq(TracksData *tracks, const byte data, int loopDepth, MmlMan *mml, ErrorNode* compileErrList)
 {
 	/**
 	 * エラー
@@ -409,7 +522,20 @@ bool putSeq(TracksData *tracks, const byte data, MmlMan *mml, ErrorNode* compile
 		return false;
 	}
 
-	tracks->track[tracks->curTrack].data[tracks->track[tracks->curTrack].ptr++] = data;
+	if(0 <= loopDepth)
+	{
+		/**
+		 * サブルーチンデータ解析中は、サブルーチンエリアに書き込む
+		 */
+		tracks->track[TRACKS + loopDepth].data[tracks->track[TRACKS + loopDepth].ptr++] = data;
+	}
+	else
+	{
+		/**
+		 * 通常トラックデータを書き込む
+		 */
+		tracks->track[tracks->curTrack].data[tracks->track[tracks->curTrack].ptr++] = data;
+	}
 
 	return true;
 }
@@ -472,6 +598,36 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 	int timebase = 48;
 	bool isSpecifyedTimebase = false;
 
+	/**
+	 * 現在のループ深度
+	 */
+	int loopDepth = -1;
+
+	/**
+	 * 前回の無名サブルーチン
+	 */
+	stLabelNode lastSub[SUB_TRACKS];
+
+	/**
+	 * 現在解析しているサブルーチンコール元アドレス
+	 */
+	int subCallAddr[SUB_TRACKS];
+
+	/**
+	 * 最後の無名サブルーチン
+	 */
+	stLabelNode *latestSub;
+
+	/**
+	 * ラベルリスト
+	 */
+	stLabelNode* labels = NULL;
+
+	/**
+	 * サブルーチンのリスト
+	 */
+	stSubroutineList subs = {NULL, NULL};
+
 #if 0
 	/* Stack over test */
 	while(true)
@@ -489,8 +645,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 	tracks.curTrack = -1;
 	{
 		int i;
-		/* 個別のデータ初期化 */
-		for(i=0; i<TRACK_MAX; i++)
+		/* Track毎データの初期化 */
+		for(i=0; i<TRACKS; i++)
 		{
 			tracks.loopAddr[i] = 0xffff;
 			tracks.velocity[i] = 15;
@@ -503,6 +659,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 			tracks.lvolRev[i] = false;
 			tracks.rvolRev[i] = false;
 			tracks.drumPart[i] = false;
+			tracks.transpose[i] = 0;
 		}
 	}
 
@@ -567,7 +724,6 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 		{
 			int octaveTmp;
 			int remainTicks;
-			byte note;
 
 			/*************************************************************/
 
@@ -603,7 +759,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 				break;
 
 			/******************************************/
-			/* 音階                                   */
+			/* 音譜・休符・タイ                       */
 			/******************************************/
 			case 'a':
 			case 'b':
@@ -612,197 +768,136 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 			case 'e':
 			case 'f':
 			case 'g':
-				/* ログ出力 */
-				newError(mml, compileErr, compileErrList);
-				compileErr->type = ErrorNone;
-				compileErr->level = ERR_DEBUG;
-				sprintf(compileErr->message, "Note %c", readValue);
-				addError(compileErr, compileErrList);
-
-				/* 音階の算出 */
-				octaveTmp = tracks.curOctave[tracks.curTrack];
-				scale = SCALE_TABLE[(readValue - 'a')];
-
-				/* +/- の算出 */
-				readValue = mmlgetch(mml);
-				if(readValue == '+' || readValue == '#')  /* いちおう半角の#に対応させておく */
+			case 'r':
+			case '^':
 				{
-					mmlgetforward(mml);
-					scale++;
-					if(12 <= scale)
+					byte note;
+
+					if('r' == readValue)
 					{
-						octaveTmp++;
-						scale = 0;
+						/* ログ出力 */
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = ErrorNone;
+						compileErr->level = ERR_DEBUG;
+						sprintf(compileErr->message, "Rest");
+						addError(compileErr, compileErrList);
+
+						note = REST;
 					}
-				}
-				else if(readValue == '-')
-				{
-					mmlgetforward(mml);
-					scale++;
-					if(0 > scale)
+					else if('^' == readValue)
 					{
-						octaveTmp--;
-						scale = 11;
+						/* ログ出力 */
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = ErrorNone;
+						compileErr->level = ERR_DEBUG;
+						sprintf(compileErr->message, "Tie");
+						addError(compileErr, compileErrList);
+
+						note = TIE;
 					}
-				}
+					else
+					{
+						/* ログ出力 */
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = ErrorNone;
+						compileErr->level = ERR_DEBUG;
+						sprintf(compileErr->message, "Note %c", readValue);
+						addError(compileErr, compileErrList);
 
-				/* オクターブチェック */
-				if(OCTAVE_MIN > octaveTmp && octaveTmp < OCTAVE_MAX)
-				{
-					/* ログ出力 */
-					newError(mml, compileErr, compileErrList);
-					compileErr->type = SyntaxError;
-					compileErr->level = ERR_ERROR;
-					sprintf(compileErr->message, "Octave range over : o%d", octaveTmp);
-					addError(compileErr, compileErrList);
-				}
+						/* 音階の算出 */
+						octaveTmp = tracks.curOctave[tracks.curTrack];
+						scale = SCALE_TABLE[(readValue - 'a')];
 
-				/* Step算出 */
-				tracks.lastticks[tracks.curTrack] = tracks.ticks[tracks.curTrack];
-				if(false == calcSteps(&tracks.ticks[tracks.curTrack], timebase, mml, compileErr))
-				{
-					newError(mml, compileErr, compileErrList);
-					compileErr->type = SyntaxError;
-					compileErr->level = ERR_ERROR;
-					sprintf(compileErr->message, "Invalid length note.");
-					addError(compileErr, compileErrList);
-					continue;
-				}
+						/* +/- による半音補正 */
+						readValue = mmlgetch(mml);
+						if(readValue == '+' || readValue == '#')  /* いちおう半角の#に対応させておく */
+						{
+							mmlgetforward(mml);
+							scale++;
+						}
+						else if(readValue == '-')
+						{
+							mmlgetforward(mml);
+							scale++;
+						}
 
-				/* 0x60tick以上の場合は分割する */
-				remainTicks = 0;
-				if(0x60 < tracks.ticks[tracks.curTrack])
-				{
-					remainTicks = tracks.ticks[tracks.curTrack] - 0x60;
-					tracks.ticks[tracks.curTrack] = 0x60;
-				}
+						/* トランスポーズ */
+						scale += tracks.transpose[tracks.curTrack];
 
-				/* 音長挿入 */
-				if((tracks.lastticks[tracks.curTrack] != tracks.ticks[tracks.curTrack]) || (tracks.gatetime[tracks.curTrack] != tracks.lastGatetime[tracks.curTrack]) || (tracks.velocity[tracks.curTrack] != tracks.lastVelocity[tracks.curTrack]))
-				{
-					putSeq(&tracks, tracks.ticks[tracks.curTrack], mml, compileErr);
-				}
+						/* scaleが 0 ～ 11 の値になるよう補正 */
+						if(0 > scale || 11 < scale)
+						{
+							octaveTmp += (scale / 12);
+							scale %= 12;
+						}
 
-				/* ゲートタイム/ベロシティ挿入 */
-				if((tracks.gatetime[tracks.curTrack] != tracks.lastGatetime[tracks.curTrack]) || (tracks.velocity[tracks.curTrack] != tracks.lastVelocity[tracks.curTrack]))
-				{
-					byte qv = (tracks.gatetime[tracks.curTrack] << 4) | tracks.velocity[tracks.curTrack];
-					putSeq(&tracks, qv, mml, compileErr);
-				}
+						/* オクターブチェック */
+						if(OCTAVE_MIN > octaveTmp || OCTAVE_MAX < octaveTmp)
+						{
+							/* ログ出力 */
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_ERROR;
+							sprintf(compileErr->message, "Octave range over : o%d", octaveTmp);
+							addError(compileErr, compileErrList);
+							continue;
+						}
+						note = ((octaveTmp-1)*12 + scale) | 0x80;
+					}
 
-				/* 音譜挿入 */
-				note = ((octaveTmp-1)*12 + scale) | 0x80;
-				putSeq(&tracks, note, mml, compileErr);
-
-			tie_shared:
-				tracks.lastGatetime[tracks.curTrack] = tracks.gatetime[tracks.curTrack];
-				tracks.lastVelocity[tracks.curTrack] = tracks.velocity[tracks.curTrack];
-
-				/* 長い音の場合にタイを追加 */
-				if(remainTicks != 0)
-				{
+					/* Step算出 */
 					tracks.lastticks[tracks.curTrack] = tracks.ticks[tracks.curTrack];
-					tracks.ticks[tracks.curTrack] = remainTicks;
-					if(tracks.lastticks[tracks.curTrack] != tracks.ticks[tracks.curTrack])
+					if(false == calcSteps(&tracks.ticks[tracks.curTrack], timebase, mml, compileErr))
 					{
-						putSeq(&tracks, tracks.ticks[tracks.curTrack], mml, compileErr);
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "Invalid length note.");
+						addError(compileErr, compileErrList);
+						continue;
 					}
-					putSeq(&tracks, TIE, mml, compileErr);
+
+					/* 0x60tick以上の場合は分割する */
+					remainTicks = 0;
+					if(0x60 < tracks.ticks[tracks.curTrack])
+					{
+						remainTicks = tracks.ticks[tracks.curTrack] - 0x60;
+						tracks.ticks[tracks.curTrack] = 0x60;
+					}
+
+					/* 音長挿入 */
+					if((tracks.lastticks[tracks.curTrack] != tracks.ticks[tracks.curTrack]) || (tracks.gatetime[tracks.curTrack] != tracks.lastGatetime[tracks.curTrack]) || (tracks.velocity[tracks.curTrack] != tracks.lastVelocity[tracks.curTrack]))
+					{
+						putSeq(&tracks, tracks.ticks[tracks.curTrack], loopDepth, mml, compileErr);
+					}
+
+					/* ゲートタイム/ベロシティ挿入 */
+					if((tracks.gatetime[tracks.curTrack] != tracks.lastGatetime[tracks.curTrack]) || (tracks.velocity[tracks.curTrack] != tracks.lastVelocity[tracks.curTrack]))
+					{
+						byte qv = (tracks.gatetime[tracks.curTrack] << 4) | tracks.velocity[tracks.curTrack];
+						putSeq(&tracks, qv, loopDepth, mml, compileErr);
+					}
+
+					/* 音譜・休符・タイの挿入 */
+					putSeq(&tracks, note, loopDepth, mml, compileErr);
+
+					tracks.lastGatetime[tracks.curTrack] = tracks.gatetime[tracks.curTrack];
+					tracks.lastVelocity[tracks.curTrack] = tracks.velocity[tracks.curTrack];
+
+					/* 長い音の場合にタイを追加 */
+					if(remainTicks != 0)
+					{
+						tracks.lastticks[tracks.curTrack] = tracks.ticks[tracks.curTrack];
+						tracks.ticks[tracks.curTrack] = remainTicks;
+						if(tracks.lastticks[tracks.curTrack] != tracks.ticks[tracks.curTrack])
+						{
+							putSeq(&tracks, tracks.ticks[tracks.curTrack], loopDepth, mml, compileErr);
+						}
+						putSeq(&tracks, TIE, loopDepth, mml, compileErr);
+					}
 				}
 
 				break;
-
-			/******************************************/
-			/* タイ                                   */
-			/******************************************/
-			case '^':
-				/* ログ出力 */
-				newError(mml, compileErr, compileErrList);
-				compileErr->type = ErrorNone;
-				compileErr->level = ERR_DEBUG;
-				sprintf(compileErr->message, "Tie %c ", readValue);
-				addError(compileErr, compileErrList);
-
-				/* Step算出 */
-				tracks.lastticks[tracks.curTrack] = tracks.ticks[tracks.curTrack];
-				if(false == calcSteps(&tracks.ticks[tracks.curTrack], timebase, mml, compileErr))
-				{
-					newError(mml, compileErr, compileErrList);
-					compileErr->type = SyntaxError;
-					compileErr->level = ERR_ERROR;
-					sprintf(compileErr->message, "Invalid length note.");
-					addError(compileErr, compileErrList);
-					continue;
-				}
-
-				/* 0x60tick以上の場合は分割する */
-				remainTicks = 0;
-				if(0x60 < tracks.ticks[tracks.curTrack])
-				{
-					remainTicks = tracks.ticks[tracks.curTrack] - 0x60;
-					tracks.ticks[tracks.curTrack] = 0x60;
-				}
-
-				/* 音長挿入 */
-				if((tracks.lastticks[tracks.curTrack] != tracks.ticks[tracks.curTrack]) || (tracks.gatetime[tracks.curTrack] != tracks.lastGatetime[tracks.curTrack]) || (tracks.velocity[tracks.curTrack] != tracks.lastVelocity[tracks.curTrack]))
-				{
-					putSeq(&tracks, tracks.ticks[tracks.curTrack], mml, compileErr);
-				}
-
-				/* ゲートタイム/ベロシティ挿入 */
-				if(tracks.gatetime[tracks.curTrack] != tracks.lastGatetime[tracks.curTrack] || tracks.velocity[tracks.curTrack] != tracks.lastVelocity[tracks.curTrack])
-				{
-					byte qv = (tracks.gatetime[tracks.curTrack] << 4) | tracks.velocity[tracks.curTrack];
-					putSeq(&tracks, qv, mml, compileErr);
-				}
-
-				/* タイ挿入 */
-				putSeq(&tracks, TIE, mml, compileErr);
-				goto tie_shared;
-
-			/******************************************/
-			/* 休符                                   */
-			/******************************************/
-			case 'r':
-				/* ログ出力 */
-				newError(mml, compileErr, compileErrList);
-				compileErr->type = ErrorNone;
-				compileErr->level = ERR_DEBUG;
-				sprintf(compileErr->message, "Rest %c ", readValue);
-				addError(compileErr, compileErrList);
-
-				tracks.lastticks[tracks.curTrack] = tracks.ticks[tracks.curTrack];
-				if(false == calcSteps(&tracks.ticks[tracks.curTrack], timebase, mml, compileErr))
-				{
-					newError(mml, compileErr, compileErrList);
-					compileErr->type = SyntaxError;
-					compileErr->level = ERR_ERROR;
-					sprintf(compileErr->message, "Invalid length note.");
-					addError(compileErr, compileErrList);
-					continue;
-				}
-
-				/* 音長挿入 */
-				remainTicks = 0;
-				if(0x60 < tracks.ticks[tracks.curTrack])
-				{
-					remainTicks = tracks.ticks[tracks.curTrack] - 0x60;
-					tracks.ticks[tracks.curTrack] = 0x60;
-				}
-
-				if((tracks.lastticks[tracks.curTrack] != tracks.ticks[tracks.curTrack]) || (tracks.gatetime[tracks.curTrack] != tracks.lastGatetime[tracks.curTrack]) || (tracks.velocity[tracks.curTrack] != tracks.lastVelocity[tracks.curTrack]))
-				{
-					putSeq(&tracks, tracks.ticks[tracks.curTrack], mml, compileErr);
-				}
-				/* ゲートタイム/ベロシティ挿入 */
-				if(tracks.gatetime[tracks.curTrack] != tracks.lastGatetime[tracks.curTrack] || tracks.velocity[tracks.curTrack] != tracks.lastVelocity[tracks.curTrack])
-				{
-					byte qv = (tracks.gatetime[tracks.curTrack] << 4) | tracks.velocity[tracks.curTrack];
-					putSeq(&tracks, qv, mml, compileErr);
-				}
-				putSeq(&tracks, REST, mml, compileErr);
-				goto tie_shared;
-
 
 			/******************************************/
 			/* コントロール                           */
@@ -831,12 +926,23 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 						addError(compileErr, compileErrList);
 						continue;
 					}
-					if(0 >= tempVal[0] || TRACK_MAX < tempVal[0])
+					if(0 >= tempVal[0] || TRACKS < tempVal[0])
 					{
 						newError(mml, compileErr, compileErrList);
 						compileErr->type = SyntaxError;
 						compileErr->level = ERR_ERROR;
 						sprintf(compileErr->message, "Invalid track assign(%d).", tempVal[0]);
+						addError(compileErr, compileErrList);
+						continue;
+					}
+
+					/* サブルーチン解析中は切り替え不可 */
+					if(0 < loopDepth)
+					{
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "Impossible track change until track end.");
 						addError(compileErr, compileErrList);
 						continue;
 					}
@@ -978,6 +1084,23 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 						break;
 
 					/******************************************/
+					/* トランスポーズ                         */
+					/******************************************/
+					case 't':
+						mmlgetforward(mml);
+						if(1 != getNumbers(mml, tempVal, compileErrList))
+						{
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_ERROR;
+							sprintf(compileErr->message, "Invalid transpose.");
+							addError(compileErr, compileErrList);
+							continue;
+						}
+						tracks.transpose[tracks.curTrack] = tempVal[0];
+						break;
+
+					/******************************************/
 					/* エコー有無効切替                       */
 					/******************************************/
 					case 'e':
@@ -996,10 +1119,10 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 							}
 							if(1 == nums && tempVal[0] == 0)
 							{
-								putSeq(&tracks, CMD_ECHO_OFF, mml, compileErr);
+								putSeq(&tracks, CMD_ECHO_OFF, loopDepth, mml, compileErr);
 								break;
 							}
-							putSeq(&tracks, CMD_ECHO_ON, mml, compileErr);
+							putSeq(&tracks, CMD_ECHO_ON, loopDepth, mml, compileErr);
 						}
 						break;
 
@@ -1022,10 +1145,10 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 							}
 							if(1 == nums && tempVal[0] == 0)
 							{
-								putSeq(&tracks, CMD_PORTAM_OFF, mml, compileErr);
+								putSeq(&tracks, CMD_PORTAM_OFF, loopDepth, mml, compileErr);
 								break;
 							}
-							putSeq(&tracks, CMD_PORTAM_ON, mml, compileErr);
+							putSeq(&tracks, CMD_PORTAM_ON, loopDepth, mml, compileErr);
 						}
 						break;
 
@@ -1219,8 +1342,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 				}
 
 				/* コマンド配置 */
-				putSeq(&tracks, CMD_SET_INST, mml, compileErr);
-				putSeq(&tracks, tempVal[0], mml, compileErr);
+				putSeq(&tracks, CMD_SET_INST, loopDepth, mml, compileErr);
+				putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
 				break;
 
 			/******************************************/
@@ -1293,8 +1416,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 						}
 
 						/* パンコマンド挿入 */
-						putSeq(&tracks, CMD_PAN, mml, compileErr);
-						putSeq(&tracks, pan, mml, compileErr);
+						putSeq(&tracks, CMD_PAN, loopDepth, mml, compileErr);
+						putSeq(&tracks, pan, loopDepth, mml, compileErr);
 						break;
 					}
 
@@ -1347,13 +1470,13 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 						/* ボリュームコマンド挿入 */
 						if(readValue == 'v')
 						{
-							putSeq(&tracks, CMD_VOLUME, mml, compileErr);
+							putSeq(&tracks, CMD_VOLUME, loopDepth, mml, compileErr);
 						}
 						else
 						{
-							putSeq(&tracks, CMD_GVOLUME, mml, compileErr);
+							putSeq(&tracks, CMD_GVOLUME, loopDepth, mml, compileErr);
 						}
-						putSeq(&tracks, tempVal[0], mml, compileErr);
+						putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
 						break;
 					}
 
@@ -1445,8 +1568,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 						tempo = 256.0 / t;
 
 						/* テンポコマンド挿入 */
-						putSeq(&tracks, CMD_TEMPO, mml, compileErr);
-						putSeq(&tracks, tempo, mml, compileErr);
+						putSeq(&tracks, CMD_TEMPO, loopDepth, mml, compileErr);
+						putSeq(&tracks, tempo, loopDepth, mml, compileErr);
 						break;
 					}
 
@@ -1581,8 +1704,217 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 					addError(compileErr, compileErrList);
 					continue;
 				}
-				putSeq(&tracks, tempVal[0], mml, compileErr);
+				putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
 				break;
+
+			/******************************************/
+			/* 無名サブルーチン開始                   */
+			/******************************************/
+			case '[':
+				{
+					int subaddr;
+
+					/* ログ出力 */
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = ErrorNone;
+					compileErr->level = ERR_DEBUG;
+					sprintf(compileErr->message, "Noname-Subroutine Start");
+					addError(compileErr, compileErrList);
+
+					/* サブルーチン深度が2より大きいものはNG */
+					if((SUB_TRACKS-1) < loopDepth)
+					{
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "Loop depth allows till 2.");
+						addError(compileErr, compileErrList);
+						continue;
+					}
+
+					/* サブルーチンコマンド挿入 */
+					subaddr = tracks.track[TRACKS+loopDepth+1].ptr;
+					putSeq(&tracks, CMD_SUBROUTINE, loopDepth, mml, compileErr);
+					putSeq(&tracks, 0, loopDepth, mml, compileErr);
+					putSeq(&tracks, subaddr, loopDepth, mml, compileErr);
+					putSeq(&tracks, (subaddr>>8), loopDepth, mml, compileErr);
+
+					/* サブルーチン深度アップ */
+					loopDepth++;
+
+					/* サブルーチン開始アドレス記憶 */
+					lastSub[loopDepth].label = -1; /* -1 = ラベルなし */
+					lastSub[loopDepth].depth = loopDepth+1;
+					lastSub[loopDepth].addr = subaddr;
+					subCallAddr[loopDepth] = tracks.track[tracks.curTrack].ptr-4;
+
+					/* サブルーチン呼び元記憶 */
+					if(false == addSubroutineListData(&subs, loopDepth, (0<=loopDepth ? tracks.curTrack : TRACKS+1), tracks.track[tracks.curTrack].ptr-4))
+					{
+						/* メモリ確保エラー */
+						newError(mml, compileErr, compileErrList); /* メモリ確保できなかった場合、たぶんこの処理もコケるのであまり意味ない */
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_FATAL;
+						sprintf(compileErr->message, "Loop depth allows till 2.");
+						addError(compileErr, compileErrList);
+						return false;
+					}
+
+					/* 音の長さが一定になるようにする為、     */
+					/* gatetime値をリセットする               */
+					tracks.lastGatetime[tracks.curTrack] = -1;
+					break;
+				}
+
+			/******************************************/
+			/* サブルーチン末端                       */
+			/******************************************/
+			case ']':
+				/* ログ出力 */
+				newError(mml, compileErr, compileErrList);
+				compileErr->type = ErrorNone;
+				compileErr->level = ERR_DEBUG;
+				sprintf(compileErr->message, "Noname-Subroutine Start");
+				addError(compileErr, compileErrList);
+
+				/* サブルーチン解析中ではない場合、NG */
+				if(0 > loopDepth)
+				{
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "']' : Subroutine is not started.");
+					addError(compileErr, compileErrList);
+					continue;
+				}
+
+				/* ループ回数の入力チェック */
+				if(1 != getNumbers(mml, tempVal, compileErrList))
+				{
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "Invalid loop num.");
+					addError(compileErr, compileErrList);
+					continue;
+				}
+				if(256 < tempVal[0] || 1 > tempVal[0])
+				{
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "Invalid loop num.");
+					addError(compileErr, compileErrList);
+					continue;
+				}
+
+				/* ループ回数の書き出し */
+				tracks.track[tracks.curTrack].data[subCallAddr[loopDepth]+1] = tempVal[0]-1;
+
+				/* サブルーチンの使いまわしをセット */
+				if(-1 == lastSub[loopDepth].label)
+				{
+					latestSub = &lastSub[loopDepth];
+				}
+				else
+				{
+					/* TODO: ラベル追加 */
+				}
+
+				/* サブルーチン末端コマンド書き込み */
+				putSeq(&tracks, CMD_SUBROUTINE_RETURN, loopDepth, mml, compileErr);
+
+				/* サブルーチン深度ダウン */
+				loopDepth--;
+
+				break;
+
+			/******************************************/
+			/* サブルーチンの途中終了                 */
+			/******************************************/
+			case '|':
+				/* ログ出力 */
+				newError(mml, compileErr, compileErrList);
+				compileErr->type = ErrorNone;
+				compileErr->level = ERR_DEBUG;
+				sprintf(compileErr->message, "Noname-Subroutine Start");
+				addError(compileErr, compileErrList);
+
+				/* サブルーチン解析中ではない場合、NG */
+				if(0 > loopDepth)
+				{
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "']' : Subroutine is not started.");
+					addError(compileErr, compileErrList);
+					continue;
+				}
+
+				/* コマンド挿入 */
+				putSeq(&tracks, CMD_SUBROUTINE_BREAK, loopDepth, mml, compileErr);
+				break;
+
+			/******************************************/
+			/* サブルーチンの再利用                   */
+			/******************************************/
+			case '*':
+				/* ログ出力 */
+				newError(mml, compileErr, compileErrList);
+				compileErr->type = ErrorNone;
+				compileErr->level = ERR_DEBUG;
+				sprintf(compileErr->message, "reuse subroutine");
+				addError(compileErr, compileErrList);
+
+				/* 未定義チェック */
+				if(NULL == latestSub)
+				{
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "'*' Noname-Subroutine not defined.");
+					addError(compileErr, compileErrList);
+					continue;
+				}
+
+				/* ループ回数の入力チェック */
+				if(1 != getNumbers(mml, tempVal, compileErrList))
+				{
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "Invalid loop num.");
+					addError(compileErr, compileErrList);
+					continue;
+				}
+				if(256 < tempVal[0] || 1 > tempVal[0])
+				{
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "Invalid loop num.");
+					addError(compileErr, compileErrList);
+					continue;
+				}
+
+				/* サブルーチンコマンド挿入 */
+				putSeq(&tracks, CMD_SUBROUTINE, loopDepth, mml, compileErr);
+				putSeq(&tracks, (tempVal[0]-1), loopDepth, mml, compileErr);
+				putSeq(&tracks, latestSub->addr, loopDepth, mml, compileErr);
+				putSeq(&tracks, (latestSub->addr>>8), loopDepth, mml, compileErr);
+				break;
+
+			/******************************************/
+			/* 解析の中断                             */
+			/******************************************/
+			case '!':
+				/* ログ出力 */
+				newError(mml, compileErr, compileErrList);
+				compileErr->type = ErrorNone;
+				compileErr->level = ERR_DEBUG;
+				sprintf(compileErr->message, "break");
+				addError(compileErr, compileErrList);
+				goto endAna;
 
 			/******************************************/
 			/* 空白文字                               */
@@ -1608,6 +1940,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 				break;
 		}
 	}
+	endAna:
 
 	/* 複数行コメントが閉じているかチェックします */
 	if(isMutiLineComment == true)
@@ -1625,11 +1958,12 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 	{
 		int i;
 		word dataptr;
+		word sub1, sub2;
 
-		dataptr = BASEPOINT + (2*TRACK_MAX);
+		dataptr = (2*TRACKS);
 
 		/* ヘッダ作成 */
-		for(i=0; i<TRACK_MAX; i++)
+		for(i=0; i<TRACKS; i++)
 		{
 			word empty = 0;
 			if(0 == tracks.track[i].ptr)
@@ -1649,13 +1983,29 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 			}
 		}
 
+		/* サブルーチントラックの開始位置取得 */
+		sub1 = dataptr;
+		sub2 = dataptr + tracks.track[TRACKS].ptr;
+
+		/* サブルーチンアドレスの変換 */
+		if(NULL != subs.root)
+		{
+			stSubroutineListData *cur;
+
+			cur = subs.root;
+			while(cur != NULL)
+			{
+				*((word *)&tracks.track[cur->track].data[cur->subaddr+2]) += (0 == cur->depth ? sub1 : sub2);
+				cur = cur->next;
+			}
+		}
+
 		/* 変換データのまとめこみ */
-		for(i=0; i<TRACK_MAX; i++)
+		for(i=0; i<TRACKS; i++)
 		{
 			byte cmd = 0x00;
-			word lp = 0x0000;
-			word rlp = 0x0000;
-			word trkst = 0x0000;
+			word lp = 0x0000;	/* ループポイント */
+			word trkst = 0x0000;	/* トラックのスタート位置 */
 
 			/* 空データ判定 */
 			if(0 == tracks.track[i].ptr)
@@ -1677,12 +2027,14 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 			cmd = CMD_JUMP;
 			bindataadd(bin, (const byte*)&cmd, 1); 
 
-			/* ループアドレスの相対アドレス算出 */
+			/* ループアドレスの算出 */
 			lp = trkst + tracks.loopAddr[i];
-			rlp = lp - bin->dataInx - 2;
-			/* ループ相対アドレスの書き込み */
-			bindataadd(bin, (const byte*)&rlp, 2); 
+			/* ループアドレスの書き込み */
+			bindataadd(bin, (const byte*)&lp, 2); 
 		}
+		/* サブルーチントラックの書き出し */
+		bindataadd(bin, (const byte*)tracks.track[TRACKS].data, tracks.track[TRACKS].ptr);
+		bindataadd(bin, (const byte*)tracks.track[TRACKS+1].data, tracks.track[TRACKS+1].ptr);
 	}
 
 	return compileErrList;

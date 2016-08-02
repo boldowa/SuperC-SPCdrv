@@ -4,60 +4,15 @@
 
 #include "gstdafx.h"
 #include "errorman.h"
+#include "timefunc.h"
 
 /**
  * メモリエラー
  */
 static ErrorNode memerr = {0, 0, MemoryError, ERR_FATAL, "", "Memory capacity over.", NULL};
-
-#ifdef _WIN32
-/**
- * 現在日時の取得
- * (Windows向け)
- */
-void setDate(char* sDate)
-{
-	SYSTEMTIME tm;
-	GetLocalTime(&tm);
-
-	sprintf(sDate, "%hu/%02hu/%02hu %02hu:%02hu:%02hu.%03hu",
-		tm.wYear,
-		tm.wMonth,
-		tm.wDay,
-		tm.wHour,
-		tm.wMinute,
-		tm.wSecond,
-		tm.wMilliseconds
-	       );
-}
-#else
-/**
- * 現在日時の取得
- * (Linux向け)
- */
-void setDate(char* sDate)
-{
-	struct timeval time;
-	struct tm* time_st;
-
-	gettimeofday(&time, NULL);
-	time_st = localtime(&time.tv_sec);
-
-	sprintf(sDate, "%d/%02d/%02d %02d:%02d:%02d.%06d",
-	        time_st->tm_year+1900,
-		time_st->tm_mon+1,
-		time_st->tm_mday,
-		time_st->tm_hour,
-		time_st->tm_min,
-		time_st->tm_sec,
-		(int)time.tv_usec
-		);
-}
-#endif
-
 ErrorNode* getmemerror()
 {
-	setDate(memerr.date);
+	setDateStr(memerr.date);
 	return &memerr;
 }
 
@@ -127,7 +82,7 @@ ErrorNode* createError(const MmlMan* const mml)
 	e->line = mml->line;
 	e->column = mml->column;
 	e->nextError = NULL;
-	setDate(e->date);
+	setDateStr(e->date);
 
 	return e;
 }

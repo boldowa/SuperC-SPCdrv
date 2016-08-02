@@ -31,6 +31,12 @@ CmdTable:
 	.dw	CmdPortamentoOn
 	.dw	CmdPortamentoOff
 	.dw	CmdPitchModulation
+	.dw	CmdPitchModulationOff
+	.dw	CmdTremolo
+	.dw	CmdTremoloOff
+	.dw	CmdSubroutine
+	.dw	CmdSubroutineReturn
+	.dw	CmdSubroutineBreak
 
 CmdLengthTable:
 	.db	2	; CmdSetInstrument
@@ -46,6 +52,12 @@ CmdLengthTable:
 	.db	1	; CmdPortamentoOn
 	.db	1	; CmdPortamentoOff
 	.db	4	; CmdPitchModulation
+	.db	2	; CmdPitchModulationOff
+	.db	4	; CmdTremolo
+	.db	2	; CmdTremoloOff
+	.db	4	; CmdSubroutine
+	.db	1	; CmdSubroutineReturn
+	.db	1	; CmdSubroutineBreak
 
 ;--------------------------------------------------
 ; Command Include
@@ -59,6 +71,8 @@ CmdLengthTable:
 .include	"CmdEcho.s"
 .include	"CmdPortamento.s"
 .include	"CmdPitchModulation.s"
+.include	"CmdTremolo.s"
+.include	"CmdSubroutine.s"
 
 .ends
 

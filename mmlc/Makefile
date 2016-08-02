@@ -2,7 +2,7 @@
 # Makefile for SuperC mml compiler
 ############################################################
 
-DEBUG	= 1
+#DEBUG	= 1
 CLANG	= 1
 #WIN32	= 1
 #x86	= 1
@@ -49,7 +49,7 @@ endif
 
 #LDFLAGS	= -Wl,--gc-sections -Wl,--no-define-common -Wl,--discard-all
 
-OFILES	 = mmlc.o compile.o mmlman.o binaryman.o errorman.o
+OFILES	 = mmlc.o compile.o mmlman.o binaryman.o errorman.o timefunc.o
 OFILES	+= md5.o
 PRECOMPILE_HEADER = gstdafx.h
 

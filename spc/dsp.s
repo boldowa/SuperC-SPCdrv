@@ -44,6 +44,8 @@ __	mov	SPC_REGADDR, y
 	xcn	a
 	mov	y, a
 	bpl	_b			; 8CH分ループ
+	; --- チャンネルループ ここまで
+	; --- 以下はループを抜けた後の処理
 
 ; 全チャンネル共通のデータを更新する
 	; エコー
@@ -63,7 +65,11 @@ __	mov	SPC_REGADDR, y
 	mov	a, buf_keyon
 	mov	SPC_REGADDR, #DSP_KON
 	mov	SPC_REGDATA, a
+	; 音の鳴っていない、且つKEYONしないCHを開放する
+	; (※ 重くなる、もしくは割り当て不安定なら、要コメントアウト)
+	call    DspReleaseMuteChannel
 	; キーオフ(キーオンする場所は対象外)
+	mov	a, buf_keyon
 	eor	a, #$ff
 	mov	SPC_REGADDR, #DSP_KOF
 	and	a, buf_keyoff
@@ -84,11 +90,11 @@ __	mov	SPC_REGADDR, y
 ;   Output      : none
 ;   Description : DSP制御処理2(後処理)
 ;                 以下を処理します
-;                 - Volume (+ Panpot)
 ;                 - Pitch
+;                 - Volume (+ Panpot)
 ;--------------------------------------------------
 ;----------------------------------------
-; local values
+; local values (l***)
 ;----------------------------------------
 .enum	$08
 	lTemp		dw
@@ -114,7 +120,9 @@ _ChannelLoop:
 	push	x
 	mov	x, a
 
-	; --- Pitch計算
+	/******************************/
+	/* Pitchを計算する            */
+	/******************************/
 	push	x
 	mov	a, track.curKey+x
 	push	a
@@ -149,11 +157,15 @@ _ChannelLoop:
 	mov	a, lTemp
 	movw	lPitch, ya
 
-	; --- Volume計算
+	/******************************/
+	/* Volumeを計算する           */
+	/******************************/
 	mov	a, track.velocity+x
 	mov	lTemp, a
 	mov	a, track.panH+x
 	mov	lpan, a
+	; システムフラグのモノラルビットをチェック
+	; このbitがONの場合、モノラル化する
 	mov1	c, musicSysFlags.2	; pampot off?
 	bcc	_Panpot
 	mov	a, lTemp
@@ -207,19 +219,36 @@ _VolLevel:
 
 	pop	x
 
+	/******************************/
+	/* Pitch値をチャンネルに反映  */
+	/******************************/
 	mov	a, lPitch
 	mov	buf_chData.pitch+x, a
 	mov	a, lPitch+1
 	mov	buf_chData.pitch+1+x, a
 
+	/******************************/
+	/* 逆位相設定、および         */
+	/* ポーズbitがON時の音量半減  */
+	/* の処理を行った後に、       */
+	/* Volume値をチャンネルに反映 */
+	/******************************/
+	; 左音量
 	mov	a, llvol
-	mov1	c, lpan.7
+	mov1    c, musicSysFlags.0	; ポーズbit
+	bcc     +
+	lsr     a
++	mov1	c, lpan.7
 	bcc	+
 	eor	a, #$ff
 	inc	a
 +	mov	buf_chData.lvol+x, a
+	; 右音量
 	mov	a, lrvol
-	mov1	c, lpan.6
+	mov1    c, musicSysFlags.0	; ポーズbit
+	bcc     +
+	lsr     a
++	mov1	c, lpan.6
 	bcc	+
 	eor	a, #$ff
 	inc	a
@@ -264,7 +293,7 @@ _BeforeChannelLoop:
 
 ;--------------------------------------------------
 ; DspReleaseMuteChannel - DSP REGISTER CONTROLL PROCESS
-;   Level       : 1 (Main Level)
+;   Level       : 2 (Main sub)
 ;   Input       : none
 ;   Output      : none
 ;   Description : DSP制御処理3
@@ -275,26 +304,39 @@ _BeforeChannelLoop:
 ;------------------------------
 
 DspReleaseMuteChannel:
+	mov     x, #0
 	mov	y, #0
 	mov	a, #DSP_ENVX
 -	mov	SPC_REGADDR, a
-	mov	x, SPC_REGDATA
+	mov	a, SPC_REGDATA
+	; ENVX が 0かどうかをチェック
+	; ENVXが0ではないなら音が鳴っているので、
+	; チャンネル開放の対象から外す
 	bne	+
 
-	; OUTX = 0、つまり音は鳴っていない
-	mov	x, #$ff
-	mov	buf_chData.allocTrack+y, x
-	mov	buf_chData.srcn+y, x			; debug
+	; ENVX = 0、つまり音が鳴り終わっている
+	; KEYONもしないなら、そのchはフリーになっているはずなので、
+	; 開放対象のチャンネルとする
+	mov     a, !ChBitTable+x
+	and     a, buf_keyon
+	bne     +
+
+	; ENVX=0, KEYON いずれも0なので、
+	; チャンネルを開放する
+	mov     a, !ChBitTable+x
+	or      a, buf_keyoff
+	mov     a, buf_keyoff			; 音が鳴っていないのであまり意味はないが、KEYOFFする
+	mov	a, #$ff				; 0xff = 割り当てTrackなし
+	mov	buf_chData.allocTrack+y, a
 
 	; ループ前処理
-+	mov	x, a
-	mov	a, y
++	mov	a, y
 	clrc
 	adc	a, #_sizeof_stChannel
 	mov	y, a
-	mov	a, x
-	xcn	a
-	inc	a
+	inc     x
+	mov     a, x
+	or      a, #(DSP_ENVX << 4)
 	xcn	a
 	bpl	-					; 8CH分ループ
 	ret

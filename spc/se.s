@@ -1,5 +1,5 @@
 /**
- * SuperC
+ * SuperC Sound Effect Program
  *
  *
  */
