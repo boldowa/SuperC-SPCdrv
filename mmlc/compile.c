@@ -621,7 +621,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 	/**
 	 * ラベルリスト
 	 */
-	stLabelNode* labels = NULL;
+	/* TODO: ラベル処理の実装 */
+	/*stLabelNode* labels = NULL; */
 
 	/**
 	 * サブルーチンのリスト
@@ -1713,6 +1714,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 			case '[':
 				{
 					int subaddr;
+					int trk;
 
 					/* ログ出力 */
 					newError(mml, compileErr, compileErrList);
@@ -1733,7 +1735,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 					}
 
 					/* サブルーチンコマンド挿入 */
-					subaddr = tracks.track[TRACKS+loopDepth+1].ptr;
+					subaddr = tracks.track[TRACKS+1+loopDepth].ptr;
 					putSeq(&tracks, CMD_SUBROUTINE, loopDepth, mml, compileErr);
 					putSeq(&tracks, 0, loopDepth, mml, compileErr);
 					putSeq(&tracks, subaddr, loopDepth, mml, compileErr);
@@ -1741,15 +1743,16 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 
 					/* サブルーチン深度アップ */
 					loopDepth++;
+					trk = (0>=loopDepth ? tracks.curTrack : TRACKS);
 
 					/* サブルーチン開始アドレス記憶 */
 					lastSub[loopDepth].label = -1; /* -1 = ラベルなし */
-					lastSub[loopDepth].depth = loopDepth+1;
+					lastSub[loopDepth].depth = loopDepth;
 					lastSub[loopDepth].addr = subaddr;
-					subCallAddr[loopDepth] = tracks.track[tracks.curTrack].ptr-4;
+					subCallAddr[loopDepth] = tracks.track[trk].ptr-4;
 
 					/* サブルーチン呼び元記憶 */
-					if(false == addSubroutineListData(&subs, loopDepth, (0<=loopDepth ? tracks.curTrack : TRACKS+1), tracks.track[tracks.curTrack].ptr-4))
+					if(false == addSubroutineListData(&subs, loopDepth, trk, tracks.track[trk].ptr-4))
 					{
 						/* メモリ確保エラー */
 						newError(mml, compileErr, compileErrList); /* メモリ確保できなかった場合、たぶんこの処理もコケるのであまり意味ない */
@@ -1757,6 +1760,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 						compileErr->level = ERR_FATAL;
 						sprintf(compileErr->message, "Loop depth allows till 2.");
 						addError(compileErr, compileErrList);
+						deleteSubroutineList(&subs);
 						return false;
 					}
 
@@ -1770,64 +1774,69 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 			/* サブルーチン末端                       */
 			/******************************************/
 			case ']':
-				/* ログ出力 */
-				newError(mml, compileErr, compileErrList);
-				compileErr->type = ErrorNone;
-				compileErr->level = ERR_DEBUG;
-				sprintf(compileErr->message, "Noname-Subroutine Start");
-				addError(compileErr, compileErrList);
-
-				/* サブルーチン解析中ではない場合、NG */
-				if(0 > loopDepth)
 				{
+					int trk;
+
+					/* ログ出力 */
 					newError(mml, compileErr, compileErrList);
-					compileErr->type = SyntaxError;
-					compileErr->level = ERR_ERROR;
-					sprintf(compileErr->message, "']' : Subroutine is not started.");
+					compileErr->type = ErrorNone;
+					compileErr->level = ERR_DEBUG;
+					sprintf(compileErr->message, "Noname-Subroutine Start");
 					addError(compileErr, compileErrList);
-					continue;
+
+					/* サブルーチン解析中ではない場合、NG */
+					if(0 > loopDepth)
+					{
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "']' : Subroutine is not started.");
+						addError(compileErr, compileErrList);
+						continue;
+					}
+
+					/* ループ回数の入力チェック */
+					if(1 != getNumbers(mml, tempVal, compileErrList))
+					{
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "Invalid loop num.");
+						addError(compileErr, compileErrList);
+						continue;
+					}
+					if(256 < tempVal[0] || 1 > tempVal[0])
+					{
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "Invalid loop num.");
+						addError(compileErr, compileErrList);
+						continue;
+					}
+
+					/* ループ回数の書き出し */
+					trk = (0>=loopDepth ? tracks.curTrack : TRACKS);
+					tracks.track[trk].data[subCallAddr[loopDepth]+1] = tempVal[0]-1;
+
+					/* サブルーチンの使いまわしをセット */
+					if(-1 == lastSub[loopDepth].label)
+					{
+						latestSub = &lastSub[loopDepth];
+					}
+					else
+					{
+						/* TODO: ラベル追加 */
+					}
+
+					/* サブルーチン末端コマンド書き込み */
+					putSeq(&tracks, CMD_SUBROUTINE_RETURN, loopDepth, mml, compileErr);
+
+					/* サブルーチン深度ダウン */
+					loopDepth--;
+
+					break;
 				}
-
-				/* ループ回数の入力チェック */
-				if(1 != getNumbers(mml, tempVal, compileErrList))
-				{
-					newError(mml, compileErr, compileErrList);
-					compileErr->type = SyntaxError;
-					compileErr->level = ERR_ERROR;
-					sprintf(compileErr->message, "Invalid loop num.");
-					addError(compileErr, compileErrList);
-					continue;
-				}
-				if(256 < tempVal[0] || 1 > tempVal[0])
-				{
-					newError(mml, compileErr, compileErrList);
-					compileErr->type = SyntaxError;
-					compileErr->level = ERR_ERROR;
-					sprintf(compileErr->message, "Invalid loop num.");
-					addError(compileErr, compileErrList);
-					continue;
-				}
-
-				/* ループ回数の書き出し */
-				tracks.track[tracks.curTrack].data[subCallAddr[loopDepth]+1] = tempVal[0]-1;
-
-				/* サブルーチンの使いまわしをセット */
-				if(-1 == lastSub[loopDepth].label)
-				{
-					latestSub = &lastSub[loopDepth];
-				}
-				else
-				{
-					/* TODO: ラベル追加 */
-				}
-
-				/* サブルーチン末端コマンド書き込み */
-				putSeq(&tracks, CMD_SUBROUTINE_RETURN, loopDepth, mml, compileErr);
-
-				/* サブルーチン深度ダウン */
-				loopDepth--;
-
-				break;
 
 			/******************************************/
 			/* サブルーチンの途中終了                 */
@@ -2037,6 +2046,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 		bindataadd(bin, (const byte*)tracks.track[TRACKS+1].data, tracks.track[TRACKS+1].ptr);
 	}
 
+	deleteSubroutineList(&subs);
 	return compileErrList;
 }
 
