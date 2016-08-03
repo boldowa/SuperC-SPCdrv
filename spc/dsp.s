@@ -217,8 +217,66 @@ _VolLevel:
 	mul	ya
 	mov	lrvol, y
 
-	pop	x
+	/******************************/
+	/* Pitchモジュレーション      */
+	/******************************/
+	mov	a, track.modulationDepth+x
+	beq	_NoModuration
+	mov	a, track.modulationWaits+x
+	beq	_Modulation
+	dec	a
+	mov	track.modulationWaits+x, a
+	bra	_NoModuration
 
+_Modulation:
+	mov	a, track.modulationRate+x
+	clrc
+	adc	a, track.modulationPhase+x
+	mov	track.modulationPhase+x, a
+	mov	lTemp, a
+	bpl	+
++	eor	a, #$ff
+	mov	lTemp+1, a
+	push	x
+	; --- 振動させる音階差を取得する
+	mov	a, track.curKey+x
+	call	CalcScaleDiff
+	pop	x
+	push	a
+	mov	a,y
+	mov	$04, a
+	mov	a, track.modulationDepth+x	; moduration
+	mov	y, a
+	mov	a, lTemp+1			; Phase
+	mul	ya
+	mov	a, y
+	pop	y
+	call	mul16_8
+	mov	a, $05
+	push	y
+	mov	a,y
+	pop	y
+	; --- 振幅を抑える
+	mov	a, lTemp
+	mov	a, y
+	lsr	a
+	ror	lTemp
+	lsr	a
+	ror	lTemp
+	lsr	a
+	ror	lTemp
+	mov	y, a
+	mov	a, lTemp
+
+	bbc	lTemp.7, +
+	movw	lTemp, ya
+	movw	ya, ZERO
+	subw	ya, lTemp
++	addw	ya, lPitch
+	movw	lPitch, ya
+
+_NoModuration:
+	pop	x
 	/******************************/
 	/* Pitch値をチャンネルに反映  */
 	/******************************/

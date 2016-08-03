@@ -224,6 +224,10 @@ _Alloc:
 	bra	++
 +	mov	a, !track.sr+y
 ++	mov	buf_chData.sr+x, a
+	mov	a, track.modulationDelay+y
+	mov	track.modulationWaits+y, a
+	mov	a, #0
+	mov	a, track.modulationPhase+x
 
 _AllocFailed:
 	mov	a, y
@@ -267,6 +271,7 @@ _Commands:
 	mov	!_jmpTgt+2, a		; |
 	mov	a, !CmdTable+y		; |
 	mov	!_jmpTgt+1, a		;/
+	mov	a, #0
 _jmpTgt:
 	call	$0000			; <- ここのアドレスは動的に書き換わる
 	jmp	AnalyzeSeq		; 普通のNoteを読み込むまでLoopする

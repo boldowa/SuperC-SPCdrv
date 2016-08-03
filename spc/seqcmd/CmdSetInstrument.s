@@ -32,6 +32,8 @@ CmdSetInstrument:
 	mov	track.brrInx+x, a
 	mov	a, !Tone00.pitchRatio+y
 	mov	track.pitchRatio+x, a
+	mov	a, !Tone00.detune+y
+	mov	track.detune+x, a
 	mov	a, !Tone00.adr+y
 	mov	track.adr+x, a
 	mov	a, !Tone00.sr+y

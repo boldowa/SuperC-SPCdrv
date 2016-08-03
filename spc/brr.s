@@ -22,7 +22,8 @@
 	DirInfo "./brr/poke-rgb_tri.brr"	
 	DirInfo "./brr/kick.brr"
 	DirInfo "./brr/snare.brr"
-	DirInfo "./brr/smwpiano.brr"
+	DirInfo "./brr/pi_d6.brr"
+;	DirInfo "./brr/smwpiano.brr"
 .ends
 
 .orga (DIR<<8 + $100)
@@ -34,6 +35,7 @@
 	BrrData "./brr/poke-rgb_tri.brr"	
 	BrrData "./brr/kick.brr"
 	BrrData "./brr/snare.brr"
-	BrrData "./brr/smwpiano.brr"
+;	BrrData "./brr/smwpiano.brr"
+	BrrData "./brr/pi_d6.brr"
 .ends
 

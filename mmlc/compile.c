@@ -1522,14 +1522,49 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 			/* モジュレーション                       */
 			/******************************************/
 			case 'm':
-				/* TODO: 実装 */
-				/* ログ出力 */
-				newError(mml, compileErr, compileErrList);
-				compileErr->type = ErrorNone;
-				compileErr->level = ERR_DEBUG;
-				sprintf(compileErr->message, "Modulation (TODO: Implement)");
-				addError(compileErr, compileErrList);
-				break;
+				{
+					int nums;
+					int delay;
+					int baseptr;
+
+					delay = 0;
+					baseptr = 0;
+
+					/* ログ出力 */
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = ErrorNone;
+					compileErr->level = ERR_DEBUG;
+					sprintf(compileErr->message, "Modulation");
+					addError(compileErr, compileErrList);
+
+					nums = getNumbers(mml, tempVal, compileErrList);
+					if((nums == 1 && tempVal[0] == 0))
+					{
+						/* モジュレーションOFFコマンド挿入 */
+						putSeq(&tracks, CMD_MODURATION_OFF, loopDepth, mml, compileErr);
+						break;
+					}
+					if(2 > nums || 3 < nums)
+					{
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "Invalid modulation specifyed.");
+						addError(compileErr, compileErrList);
+						continue;
+					}
+					if(nums == 3)
+					{
+						delay = tempVal[0];
+						baseptr = 1;
+					}
+					/* モジュレーションコマンド挿入 */
+					putSeq(&tracks, CMD_MODURATION, loopDepth, mml, compileErr);
+					putSeq(&tracks, delay, loopDepth, mml, compileErr);
+					putSeq(&tracks, tempVal[baseptr], loopDepth, mml, compileErr);
+					putSeq(&tracks, tempVal[baseptr+1], loopDepth, mml, compileErr);
+					break;
+				}
 
 			/******************************************/
 			/* テンポ                                 */

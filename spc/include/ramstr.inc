@@ -40,28 +40,31 @@
 
 	brrInx		dsb	TRACKS		; 負数のときはノイズ
 	pitchRatio	dsb	TRACKS
+	detune		dsb	TRACKS
+	adr		dsb	TRACKS		; GAINモードのとき、2バイト目はGAIN値になります
+	sr		dsb	TRACKS		; GAINモードのとき、2バイト目はGAIN値になります
+	rr		dsb	TRACKS		; releaseTimingで、SR値をこの値に書き換えます
 	curKey		dsb	TRACKS
+	panL		dsb	TRACKS
+	panH		dsb	TRACKS
+	volumeL		dsb	TRACKS
+	volumeH		dsb	TRACKS
 	gate		dsb	TRACKS
 	releaseTiming	dsb	TRACKS		; RRに移行するタイミング
 	stepLeft	dsb	TRACKS		; 0になったときに次Noteを解析する
 	step		dsb	TRACKS
 	velocity	dsb	TRACKS
-	volumeL		dsb	TRACKS
-	volumeH		dsb	TRACKS
-	panL		dsb	TRACKS
-	panH		dsb	TRACKS
 	tremoloDelay	dsb	TRACKS
 	tremoloRate	dsb	TRACKS
 	tremoloDepth	dsb	TRACKS
 	modulationDelay	dsb	TRACKS
 	modulationRate	dsb	TRACKS
 	modulationDepth	dsb	TRACKS
+	modulationPhase	dsb	TRACKS
+	modulationWaits	dsb	TRACKS
 	PitchSpan	dsb	TRACKS
 	PitchCounter	dsb	TRACKS
 	PitchPhase	dsb	TRACKS
-	adr		dsb	TRACKS		; GAINモードのとき、2バイト目はGAIN値になります
-	sr		dsb	TRACKS		; GAINモードのとき、2バイト目はGAIN値になります
-	rr		dsb	TRACKS		; releaseTimingで、SR値をこの値に書き換えます
 .endst
 
 ;----------------------------------------
@@ -70,6 +73,7 @@
 .struct stTone
 	brrInx		db		; 波形番号
 	pitchRatio	db		; ピッチ倍率
+	detune		db		; デチューン
 	adr		db		; Attack and Decay rate
 	sr		db		; Sustain rate
 	rr		db		; Release rate

@@ -17,4 +17,5 @@
 .include "CalcScale.s"
 .include "SearchUseCh.s"
 .include "GetFreeCh.s"
+.include "mul.s"
 

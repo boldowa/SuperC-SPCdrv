@@ -15,15 +15,6 @@
 TrackHeader:
 	.dw	_Track1-TrackHeader
 	.dw	_Track2-TrackHeader
-	.dw	NULL
-	.dw	NULL
-	.dw	NULL
-	.dw	NULL
-	.dw	NULL
-	.dw	NULL
-	.dw	NULL
-	.dw	NULL
-	/*
 	.dw	_Track3-TrackHeader
 	.dw	_Track4-TrackHeader
 	.dw	_Track5-TrackHeader
@@ -32,7 +23,6 @@ TrackHeader:
 	.dw	_Track8-TrackHeader
 	.dw	_Track9-TrackHeader
 	.dw	_Track10-TrackHeader
-	*/
 
 _Track1:
 	.db	$60
@@ -41,7 +31,6 @@ _Track1:
 	.db	CMD_ECHO_PARAM, $c0, $04, $40
 _T1Lp:
 	.db	CMD_TEMPO, 45
-	.db	$00
 	.db	$c9, $c9
 	.db	CMD_TEMPO, 80
 	.db	$c9, $c9
@@ -75,6 +64,7 @@ _Track2:
 	.db	CMD_VOLUME, $ff
 	.db	CMD_SET_INST, $04
 _Join:
+	.db	CMD_MODURATION, $20, $08, $04
 	.db	CMD_ECHO_ON
 	.db	CMD_PORTAM_ON
 	.db	CMD_PAN, $10

@@ -14,10 +14,7 @@ CmdTremolo:
 	mov	a, #0
 	mov	track.PitchSpan+x, a
 	call	readSeq
--	mov	track.modulationDepth+x, a
-	ret
-
 CmdTremoloOff:
-	mov	a, #0
-	bra	-
+	mov	track.modulationDepth+x, a
+	ret
 
