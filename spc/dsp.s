@@ -234,9 +234,13 @@ _Modulation:
 	adc	a, track.modulationPhase+x
 	mov	track.modulationPhase+x, a
 	mov	lTemp, a
-	bpl	+
-+	eor	a, #$ff
 	mov	lTemp+1, a
+	and	a, #$c0
+	beq	+
+	cmp	a, #$c0
+	beq	+
+	eor	lTemp+1, #$3f
++	and	lTemp+1, #$3f
 	push	x
 	; --- 振動させる音階差を取得する
 	mov	a, track.curKey+x
@@ -348,6 +352,9 @@ _BeforeChannelLoop:
 .undefine		lPitchDif
 .undefine		lVolumeH
 .undefine		lVolumeL
+.undefine		lpan
+.undefine		llvol
+.undefine		lrvol
 
 ;--------------------------------------------------
 ; DspReleaseMuteChannel - DSP REGISTER CONTROLL PROCESS
