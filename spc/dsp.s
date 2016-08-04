@@ -129,38 +129,69 @@ _ChannelLoop:
 	call	CalcScale
 	movw	lPitch, ya
 	pop	a
-	cmp	a, #$48
-	bmi	+
-	mov	y, #$21
-	mov	a, #$7c
-	bra	++
-+	inc	a
-	call	CalcScale
-++	subw	ya, lPitch
+	call	CalcScaleDiff
 	movw	lPitchDif, ya
 	pop	x
 
+	/****************************************/
+	/* ピッチのスライド処理                 */
+	/****************************************/
 	mov	a, track.PitchCounter+x
 	bne	+
 	mov	a, track.PitchPhase
 
-+	mov	y, lPitch
-	mov	a, track.pitchRatio+x
-	mul	ya
-	movw	lTemp, ya
-	mov	y, lPitch+1
-	mov	a, track.pitchRatio+x
-	mul	ya
-	clrc
-	adc	a, lTemp+1
+	/****************************************/
+	/* デチューン値の適用                   */
+	/****************************************/
+	mov	$04, lPitchDif+1
+	mov	a, lPitchDif
 	mov	y, a
-	mov	a, lTemp
+	mov	a, track.detune+x
+	mov	lTemp, a
+	bpl	+
+	eor	a, #$ff
+	inc	a
++	call	mul16_8
+	bbc	lTemp.7, +
+	movw	lTemp, ya
+	movw	ya, ZERO
+	subw	ya, lTemp
++	addw	ya, lPitch
 	movw	lPitch, ya
 
+	/****************************************/
+	/* Vol LFO                              */
+	/****************************************/
++	mov	a, track.tremoloDepth+x
+	beq	_CalcVol1
+	mov	a, track.tremoloWaits+x
+	beq	_Tremolo
+	dec	a
+	mov	track.tremoloWaits+x, a
+	bra	_CalcVol
+_Tremolo:
+	mov	a, track.tremoloRate+x
+	clrc
+	adc	a, track.tremoloPhase+x
+	mov	track.tremoloPhase+x, a
+	asl	a
+	asl	a
+	mov	y, a
+	mov	a, track.tremoloDepth+x
+	mul	ya
+	mov	a, y
+	eor	a, #$ff
+	mov	y, a
+	mov	a, track.velocity+x
+	mul	ya
+	mov	a, y
+	bra	_CalcVol
 	/******************************/
 	/* Volumeを計算する           */
 	/******************************/
+_CalcVol1:
 	mov	a, track.velocity+x
+_CalcVol:
 	mov	lTemp, a
 	mov	a, track.panH+x
 	mov	lpan, a
@@ -242,35 +273,19 @@ _Modulation:
 	eor	lTemp+1, #$3f
 +	and	lTemp+1, #$3f
 	push	x
-	; --- 振動させる音階差を取得する
+	; --- 振動幅を取得する
 	mov	a, track.curKey+x
-	call	CalcScaleDiff
+	;call	CalcScaleDiff
+	call	CalcScale
 	pop	x
-	push	a
-	mov	a,y
 	mov	$04, a
+	mov	a, y
+	mov	$05, a
 	mov	a, track.modulationDepth+x	; moduration
 	mov	y, a
 	mov	a, lTemp+1			; Phase
 	mul	ya
-	mov	a, y
-	pop	y
-	call	mul16_8
-	mov	a, $05
-	push	y
-	mov	a,y
-	pop	y
-	; --- 振幅を抑える
-	mov	a, lTemp
-	mov	a, y
-	lsr	a
-	ror	lTemp
-	lsr	a
-	ror	lTemp
-	lsr	a
-	ror	lTemp
-	mov	y, a
-	mov	a, lTemp
+	call	mul16_16
 
 	bbc	lTemp.7, +
 	movw	lTemp, ya
@@ -280,6 +295,22 @@ _Modulation:
 	movw	lPitch, ya
 
 _NoModuration:
+	/******************************/
+	/* ピッチ倍率補正             */
+	/******************************/
+	mov	y, lPitch
+	mov	a, track.pitchRatio+x
+	mul	ya
+	movw	lTemp, ya
+	mov	y, lPitch+1
+	mov	a, track.pitchRatio+x
+	mul	ya
+	clrc
+	adc	a, lTemp+1
+	mov	y, a
+	mov	a, lTemp
+	movw	lPitch, ya
+
 	pop	x
 	/******************************/
 	/* Pitch値をチャンネルに反映  */
@@ -324,7 +355,10 @@ _BeforeChannelLoop:
 	bcc	+
 	jmp	_ChannelLoop
 
-+	mov	SPC_REGADDR, #$0c
+	/****************************************/
+	/* エコー音量の算出                     */
+	/****************************************/
++	mov	SPC_REGADDR, #DSP_MVOLL
 	mov	y, SPC_REGDATA
 	mov	a, eVolRatio
 	and	a, #$7f
@@ -336,6 +370,9 @@ _BeforeChannelLoop:
 	inc	a
 +	mov	buf_eVol, a
 
+	/****************************************/
+	/* エコー使用chが無い場合にECENを切る   */
+	/****************************************/
 	mov	SPC_REGADDR, #DSP_FLG
 	mov	a, SPC_REGDATA
 	and	a, #(FLG_ECEN ~ $ff)

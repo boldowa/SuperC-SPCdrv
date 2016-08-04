@@ -57,6 +57,8 @@
 	tremoloDelay	dsb	TRACKS
 	tremoloRate	dsb	TRACKS
 	tremoloDepth	dsb	TRACKS
+	tremoloPhase	dsb	TRACKS
+	tremoloWaits	dsb	TRACKS
 	modulationDelay	dsb	TRACKS
 	modulationRate	dsb	TRACKS
 	modulationDepth	dsb	TRACKS

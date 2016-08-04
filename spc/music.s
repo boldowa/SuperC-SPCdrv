@@ -226,8 +226,11 @@ _Alloc:
 ++	mov	buf_chData.sr+x, a
 	mov	a, track.modulationDelay+y
 	mov	track.modulationWaits+y, a
+	mov	a, track.tremoloDelay+y
+	mov	track.tremoloWaits+y, a
 	mov	a, #0
 	mov	a, track.modulationPhase+x
+	mov	a, track.tremoloPhase+x
 
 _AllocFailed:
 	mov	a, y

@@ -583,7 +583,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 	/**
 	 * 音階
 	 */
-	byte scale;
+	int scale;
 
 	/**
 	 * オクターブ記号の反転
@@ -655,7 +655,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 			tracks.gatetime[i] = 7;
 			tracks.lastGatetime[i] = -1;
 			tracks.curOctave[i] = 3;
-			tracks.ticks[i] = 0xffff;
+			tracks.ticks[i] = -1;
 			tracks.lastticks[i] = -1;
 			tracks.lvolRev[i] = false;
 			tracks.rvolRev[i] = false;
@@ -1178,6 +1178,48 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 							tracks.drumPart[tracks.curTrack] = false;
 						}
 						break;
+
+					/******************************************/
+					/* トレモロ                               */
+					/******************************************/
+					case 'v':
+						{
+							int nums;
+							int delay;
+							int baseptr;
+
+							delay = 0;
+							baseptr = 0;
+
+							mmlgetforward(mml);
+							nums = getNumbers(mml, tempVal, compileErrList);
+							if((nums == 1 && tempVal[0] == 0))
+							{
+								/* トレモロOFFコマンド挿入 */
+								putSeq(&tracks, CMD_TREMOLO_OFF, loopDepth, mml, compileErr);
+								break;
+							}
+							if(2 > nums || 3 < nums)
+							{
+								newError(mml, compileErr, compileErrList);
+								compileErr->type = SyntaxError;
+								compileErr->level = ERR_ERROR;
+								sprintf(compileErr->message, "Invalid modulation specifyed.");
+								addError(compileErr, compileErrList);
+								continue;
+							}
+							if(nums == 3)
+							{
+								delay = tempVal[0];
+								baseptr = 1;
+							}
+							/* トレモロコマンド挿入 */
+							putSeq(&tracks, CMD_TREMOLO, loopDepth, mml, compileErr);
+							putSeq(&tracks, delay, loopDepth, mml, compileErr);
+							putSeq(&tracks, tempVal[baseptr], loopDepth, mml, compileErr);
+							putSeq(&tracks, tempVal[baseptr+1], loopDepth, mml, compileErr);
+							break;
+						}
 
 					default:
 						newError(mml, compileErr, compileErrList);
@@ -1793,15 +1835,15 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 						newError(mml, compileErr, compileErrList); /* メモリ確保できなかった場合、たぶんこの処理もコケるのであまり意味ない */
 						compileErr->type = SyntaxError;
 						compileErr->level = ERR_FATAL;
-						sprintf(compileErr->message, "Loop depth allows till 2.");
+						sprintf(compileErr->message, "addSubroutineListData : Memory alloc error.");
 						addError(compileErr, compileErrList);
 						deleteSubroutineList(&subs);
 						return false;
 					}
 
-					/* 音の長さが一定になるようにする為、     */
-					/* gatetime値をリセットする               */
-					tracks.lastGatetime[tracks.curTrack] = -1;
+					/* サブルーチンを抜けた後の音の長さが */
+					/* 一定になるようにする               */
+					tracks.ticks[tracks.curTrack] = -1;
 					break;
 				}
 
@@ -1903,50 +1945,73 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 			/* サブルーチンの再利用                   */
 			/******************************************/
 			case '*':
-				/* ログ出力 */
-				newError(mml, compileErr, compileErrList);
-				compileErr->type = ErrorNone;
-				compileErr->level = ERR_DEBUG;
-				sprintf(compileErr->message, "reuse subroutine");
-				addError(compileErr, compileErrList);
-
-				/* 未定義チェック */
-				if(NULL == latestSub)
 				{
-					newError(mml, compileErr, compileErrList);
-					compileErr->type = SyntaxError;
-					compileErr->level = ERR_ERROR;
-					sprintf(compileErr->message, "'*' Noname-Subroutine not defined.");
-					addError(compileErr, compileErrList);
-					continue;
-				}
+					int trk;
 
-				/* ループ回数の入力チェック */
-				if(1 != getNumbers(mml, tempVal, compileErrList))
-				{
+					/* ログ出力 */
 					newError(mml, compileErr, compileErrList);
-					compileErr->type = SyntaxError;
-					compileErr->level = ERR_ERROR;
-					sprintf(compileErr->message, "Invalid loop num.");
+					compileErr->type = ErrorNone;
+					compileErr->level = ERR_DEBUG;
+					sprintf(compileErr->message, "reuse subroutine");
 					addError(compileErr, compileErrList);
-					continue;
-				}
-				if(256 < tempVal[0] || 1 > tempVal[0])
-				{
-					newError(mml, compileErr, compileErrList);
-					compileErr->type = SyntaxError;
-					compileErr->level = ERR_ERROR;
-					sprintf(compileErr->message, "Invalid loop num.");
-					addError(compileErr, compileErrList);
-					continue;
-				}
 
-				/* サブルーチンコマンド挿入 */
-				putSeq(&tracks, CMD_SUBROUTINE, loopDepth, mml, compileErr);
-				putSeq(&tracks, (tempVal[0]-1), loopDepth, mml, compileErr);
-				putSeq(&tracks, latestSub->addr, loopDepth, mml, compileErr);
-				putSeq(&tracks, (latestSub->addr>>8), loopDepth, mml, compileErr);
-				break;
+					/* 未定義チェック */
+					if(NULL == latestSub)
+					{
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "'*' Noname-Subroutine not defined.");
+						addError(compileErr, compileErrList);
+						continue;
+					}
+
+					/* ループ回数の入力チェック */
+					if(1 != getNumbers(mml, tempVal, compileErrList))
+					{
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "Invalid loop num.");
+						addError(compileErr, compileErrList);
+						continue;
+					}
+					if(256 < tempVal[0] || 1 > tempVal[0])
+					{
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "Invalid loop num.");
+						addError(compileErr, compileErrList);
+						continue;
+					}
+
+					/* サブルーチンコマンド挿入 */
+					putSeq(&tracks, CMD_SUBROUTINE, loopDepth, mml, compileErr);
+					putSeq(&tracks, (tempVal[0]-1), loopDepth, mml, compileErr);
+					putSeq(&tracks, latestSub->addr, loopDepth, mml, compileErr);
+					putSeq(&tracks, (latestSub->addr>>8), loopDepth, mml, compileErr);
+
+					/* サブルーチン呼び元記憶　*/
+					trk = (0>=loopDepth ? tracks.curTrack : TRACKS);
+					if(false == addSubroutineListData(&subs, latestSub->depth, trk, tracks.track[trk].ptr-4))
+					{
+						/* メモリ確保エラー */
+						newError(mml, compileErr, compileErrList); /* メモリ確保できなかった場合、たぶんこの処理もコケるのであまり意味ない */
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_FATAL;
+						sprintf(compileErr->message, "addSubroutineListData : Memory alloc error.");
+						addError(compileErr, compileErrList);
+						deleteSubroutineList(&subs);
+						return false;
+					}
+
+					/* サブルーチンを抜けた後の音の長さが */
+					/* 一定になるようにする               */
+					tracks.ticks[tracks.curTrack] = -1;
+
+					break;
+				}
 
 			/******************************************/
 			/* 解析の中断                             */

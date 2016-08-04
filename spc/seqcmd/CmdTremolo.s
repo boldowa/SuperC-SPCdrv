@@ -4,17 +4,13 @@
  *
  */
 
-/* TODO: ƒƒ‚ƒŠ’è‹`‚ÆÀ‘•‚Ì‘‚«Š·‚¦ */
-
 CmdTremolo:
 	call	readSeq
-	mov	track.modulationDelay+x, a
+	mov	track.tremoloDelay+x, a
 	call	readSeq
-	mov	track.modulationRate+x, a
-	mov	a, #0
-	mov	track.PitchSpan+x, a
+	mov	track.tremoloRate+x, a
 	call	readSeq
 CmdTremoloOff:
-	mov	track.modulationDepth+x, a
+	mov	track.tremoloDepth+x, a
 	ret
 
