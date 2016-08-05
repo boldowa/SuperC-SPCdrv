@@ -12,6 +12,14 @@
 .include "id666.tab"
 .include "dspreg.tab"
 
+.bank 2 slot 2
+.orga __CODE_START__ - 19
+	.db	"DIR", $00
+	.dw	DirTbl
+	.db	"TBL", $00
+	.dw	TrackLocation
+	.db	"CODE", $00
+	.dw	__CODE_START__
 
 .incdir  ""
 .bank 3 slot 3
@@ -61,7 +69,7 @@ __	mov	[$00]+y, a
 ; DSPレジスタを初期化します
 	mov	x,a
 -	mov	a, !TAB_DSP_INIT+x
-	bmi	+
+	bmi	_EndInitDSP
 	mov	SPC_REGADDR,a
 	inc	x
 	mov	a,!TAB_DSP_INIT+x
@@ -69,8 +77,13 @@ __	mov	[$00]+y, a
 	inc	x
 	bra	-
 
+_EndInitDSP:
+
 ; (テスト用)シーケンスデータの初期設定を行います
-+	call	InitDebugSeqData
+;.ifdef _MAKESPC
+;	call	InitDebugSeqData
+;.endif
+	call	InitSequenceData
 
 ; タイマレジスタの初期設定を行います
 	mov	a, SPC_COUNTER0					; カウンタレジスタをクリアします
@@ -175,6 +188,8 @@ TAB_DSP_INIT:
 	.db   $ff ; termination code
 .ends
 
+.ifdef _MAKESPC
+
 .section "DebugCode" free
 InitDebugSeqData:
 	mov	a, #0
@@ -228,6 +243,8 @@ InitDebugSeqData:
 	mov	seChNums, #3
 	ret
 .ends
+
+.endif
 
 /* table data include */
 .incdir  "./table/"

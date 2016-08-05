@@ -5,6 +5,7 @@
 
 #include "gstdafx.h"
 #include "mmlman.h"
+#include "pathfunc.h"
 
 /**
  * ファイルサイズ取得
@@ -72,7 +73,10 @@ bool mmlopen(MmlMan* mml, char* fname)
 	mml->line = 0;
 	mml->column = 0;
 
+	/* ファイルパスを取得します */
 	strcpy(mml->fname, fname);
+	getFileDir(mml->fdir, fname);
+
 	for(bufctr = 0; bufctr < MML_BUFFER_SIZE ; bufctr++)
 	{
 		mml->readbuff[bufctr] = '\0';
@@ -280,7 +284,8 @@ void skipchars(MmlMan* mml, int skips)
 
 void skipspaces(MmlMan* mml)
 {
-	char ch = ' ';
+	char ch;
+	ch = mmlgetch(mml);
 	while( (    (ch == '\t')
 	         || (ch == ' ' )))
 	{

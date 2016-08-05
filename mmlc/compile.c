@@ -5,6 +5,7 @@
 #include "gstdafx.h"
 #include "mmlman.h"
 #include "compile.h"
+#include "md5.h"
 
 /****************************************
  * 非公開定数
@@ -15,6 +16,14 @@
 
 /* サブルーチントラック数 */
 #define SUB_TRACKS 2
+
+/* 曲用BRRインデクス開始位置 */
+#define BRRINX_START 32
+
+/* ドラム定義テーブル長 */
+#define DRUMTABLE_LEN 8
+/* ドラム定義の最大数 */
+#define DRUMTABLE_NUMS 7
 
 /* 変換系関数用のテンポラリバッファ長 */
 #define TMP_BUFFER_SIZE 32
@@ -182,6 +191,98 @@ typedef struct {
 	mmlcmpstr(mml, str, strlen(str))
 
 /**
+ * MD5値の取得
+ */
+bool getMDFile(char* fname, byte* digest)
+{
+	FILE *file;
+	MD5_CTX context;
+	int len;
+	byte buffer[1024];
+
+	file = fopen(fname, "rb");
+	if(NULL == file)
+	{
+		return false;
+	}
+
+	MD5Init(&context);
+	while(0 != (len = fread(buffer, 1, 1024, file)))
+	{
+		MD5Update(&context, buffer, len);
+	}
+	MD5Final(digest, &context);
+
+	fclose(file);
+	return true;
+}
+
+
+/**
+ * BRRリストのデータを作成する
+ */
+stBrrListData* makeBrrListData(char *brrname, int *brrInx, byte *md5)
+{
+	stBrrListData *data = NULL;
+
+	data = (stBrrListData *)malloc(sizeof(stBrrListData));
+	if(NULL != data)
+	{
+		memset(data, 0, sizeof(stBrrListData));
+		strcpy(data->fname, brrname);
+		data->brrInx = *brrInx++;
+		data->next = NULL;
+	}
+
+	return data;
+}
+
+
+/**
+ * BRRリストのデータを解放する
+ */
+void deleteBrrListData(stBrrListData* bList)
+{
+	stBrrListData *s, *t;
+
+	s = bList;
+
+	while(NULL != s)
+	{
+		t = s->next;
+		free(s);
+		s = t;
+	}
+}
+
+/**
+ * BRRリストにデータを追加する
+ */
+stBrrListData* addBrrListData(stBrrListData* bList, char *fname, int *brrInx, byte* md5)
+{
+	/* データが無い場合は作る */
+	if(NULL == bList)
+	{
+		bList = makeBrrListData(fname, brrInx, md5);
+		if(NULL == bList)
+		{
+			return NULL;
+		}
+
+		return bList;
+	}
+
+	/* 同一BRRデータかチェックする */
+	if(0 == strcmp(bList->fname, fname) || memcmp(bList->fname, md5, 16))
+	{
+		return bList;
+	}
+
+	/* 再帰呼び出しにより、子要素をチェック */
+	return addBrrListData(bList->next, fname, brrInx, md5);
+}
+
+/**
  * サブルーチンリストのデータを作成する
  */
 stSubroutineListData* makeSubroutineListData(int depth, int track, int subaddr)
@@ -199,6 +300,7 @@ stSubroutineListData* makeSubroutineListData(int depth, int track, int subaddr)
 
 	return data;
 }
+
 
 /**
  * サブルーチンリストのデータを解放する
@@ -543,7 +645,7 @@ bool putSeq(TracksData *tracks, const byte data, int loopDepth, MmlMan *mml, Err
 /**
  * mmlをコンパイルして、バイナリデータ化します
  */
-ErrorNode* compile(MmlMan* mml, BinMan *bin)
+ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 {
 	/**
 	 * トラックデータ
@@ -629,6 +731,26 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 	 */
 	stSubroutineList subs = {NULL, NULL};
 
+	/**
+	 * BRRデータのリスト
+	 */
+	stBrrListData* bList = *bl;
+
+	/**
+	 * BRRのインデックス
+	 */
+	int brrInx = BRRINX_START;
+
+	/**
+	 * 音色テーブル
+	 */
+	Track toneTable;
+
+	/**
+	 * ドラムトーンテーブル
+	 */
+	Track drumTable;
+
 #if 0
 	/* Stack over test */
 	while(true)
@@ -663,6 +785,10 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 			tracks.transpose[i] = 0;
 		}
 	}
+
+	/* 音色テーブルの初期化 */
+	memset(&toneTable, 0, sizeof(Track));
+	memset(&drumTable, 0, sizeof(Track));
 
 	while(mml->iseof == false)
 	{
@@ -1024,8 +1150,218 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 				} /* endif swap<> */
 				else if(mmlCmpStr(mml, "tone") == true)
 				{
+					int validNums = 9;
+					int nums = 0;
+					int* arg = tempVal;
+					bool isFile = false;
+					char fileName[MAX_PATH];
+					int fileNameInx = 0;
+					int localBrrInx = 0;
+					stBrrListData *localBlist = NULL;
+					byte digest[16];
+
 					skipspaces(mml);
-					/* TODO: 実装 */
+					readValue = mmlgetch(mml);
+					if('"' == readValue)	/* BRRファイル名で指定 */
+					{
+						/* mmlのあるパスを取得 */
+						strcpy(fileName, mml->fdir);
+						fileNameInx = strlen(fileName);
+						/* BRRファイル名を取得する */
+						mmlgetforward(mml);
+						do
+						{
+							readValue = mmlgetforward(mml);
+							if('"' == readValue)
+							{
+								break;
+							}
+							fileName[fileNameInx++] = readValue;
+						}while(MAX_PATH-1 > fileNameInx);
+						fileName[fileNameInx] = '\0';
+						if('"' != readValue)
+						{
+							/* ファイル名が長すぎるか、'"' が見つからない */
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_ERROR;
+							sprintf(compileErr->message, "File name is too long, or '\"' is missing (%s).", fileName);
+							addError(compileErr, compileErrList);
+							continue;
+						}
+						skipspaces(mml);
+						if(',' != mmlgetforward(mml))
+						{
+							/* カンマ区切りなし、文法エラー */
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_ERROR;
+							sprintf(compileErr->message, "Invalid tone define.");
+							addError(compileErr, compileErrList);
+							continue;
+						}
+
+						/* ファイルチェック */
+						if(false == getMDFile(fileName, digest))
+						{
+							/* BRRファイルエラー */
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_ERROR;
+							sprintf(compileErr->message, "File read Error (%s).", fileName);
+							addError(compileErr, compileErrList);
+							continue;
+						}
+
+						/* BRRリスト追加 */
+						localBlist = addBrrListData(bList, fileName, &brrInx, digest);
+						if(NULL == localBlist)
+						{
+							/* メモリ確保エラー */
+							newError(mml, compileErr, compileErrList); /* メモリ確保できなかった場合、たぶんこの処理もコケるのであまり意味ない */
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_FATAL;
+							sprintf(compileErr->message, "addBrrListData : Memory alloc error.");
+							addError(compileErr, compileErrList);
+							deleteSubroutineList(&subs);
+							deleteBrrListData(bList);
+							bList = NULL;
+							return false;
+						}
+						if(NULL == bList)
+						{
+							bList = localBlist;
+						}
+
+						localBrrInx = localBlist->brrInx;
+
+						isFile = true;
+						validNums--;
+						skipspaces(mml);
+					}
+
+					/* 引数取得 */
+					nums = getNumbers(mml, tempVal, compileErrList);
+					if(4>nums)
+					{
+						/* 引数の数がヘン、文法エラー */
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "Invalid tone define(too few arguments).");
+						addError(compileErr, compileErrList);
+						continue;
+					}
+
+					/* BRRが波形番号指定の場合の波形情報を取得 */
+					if(false == isFile)
+					{
+						localBrrInx = tempVal[0];
+						arg++;
+					}
+
+					/* GAINモードの時は1つ引数が少ない */
+					if(0 == arg[2])
+					{
+						validNums--;
+					}
+					if(nums != validNums)
+					{
+						/* 引数の数がヘン、文法エラー */
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "Invalid tone define(Invalid arguments).");
+						addError(compileErr, compileErrList);
+						continue;
+					}
+
+					/* ADSRモード */
+					if(arg[2] != 0)
+					{
+						byte adr, sr, rr, tmp;
+
+						/* Decay */
+						adr = arg[4];
+						adr <<= 4;
+						/* Attack */
+						tmp = (arg[3] & 0xf);
+						adr |= tmp;
+						adr |= 0x80;
+						/* Sustain Level */
+						sr = arg[5];
+						sr <<= 5;
+						rr = sr;
+						/* Sustain Rate */
+						tmp = (arg[6] & 0x1f);
+						sr |= tmp;
+						/* Release Rate */
+						tmp = (arg[7] & 0x1f);
+						rr |= tmp;
+
+						toneTable.data[toneTable.ptr++] = localBrrInx;	/* 波形番号 */
+						toneTable.data[toneTable.ptr++] = arg[0];	/* ピッチ倍率 */
+						toneTable.data[toneTable.ptr++] = arg[1];	/* デチューン */
+						toneTable.data[toneTable.ptr++] = adr;		/* ADR */
+						toneTable.data[toneTable.ptr++] = sr;		/* SR */
+						toneTable.data[toneTable.ptr++] = rr;		/* RR */
+						break;
+					}
+
+					/* GAINモード */
+					{
+						byte gmode1, gmode2, gv1, gv2;
+						byte gain1, gain2;
+						gmode1 = arg[3];
+						gv1 = arg[4];
+						gmode2 = arg[5];
+						gv2 = arg[6];
+						/* 発音時のGAIN */
+						switch(gmode1)
+						{
+							case 0:	/* 直接指定 */
+								gv1 &= 0x7f;
+								gain1 = gv1;
+								break;
+							case 1:	/* 減少（リニア） */
+							case 2:	/* 減少（ 指数 ） */
+							case 3:	/* 増加（リニア） */
+							case 4:	/* 増加（折れ線） */
+							default:
+								gv1 &= 0x1f;
+								gmode1--;
+								gain1 = (gmode1 << 5);
+								gain1 |= 0x80;
+								gain1 |= gv1;
+								break;
+						}
+						/* リリース時のGAIN */
+						switch(gmode2)
+						{
+							case 0:	/* 直接指定 */
+								gv2 &= 0x7f;
+								gain2 = gv2;
+								break;
+							case 1:	/* 減少（リニア） */
+							case 2:	/* 減少（ 指数 ） */
+							case 3:	/* 増加（リニア） */
+							case 4:	/* 増加（折れ線） */
+							default:
+								gv2 &= 0x1f;
+								gmode2--;
+								gain2 = (gmode2 << 5);
+								gain2 |= 0x80;
+								gain2 |= gv2;
+								break;
+						}
+
+						toneTable.data[toneTable.ptr++] = localBrrInx;	/* 波形番号 */
+						toneTable.data[toneTable.ptr++] = arg[0];	/* ピッチ倍率 */
+						toneTable.data[toneTable.ptr++] = arg[1];	/* デチューン */
+						toneTable.data[toneTable.ptr++] = 0;		/* ADR */
+						toneTable.data[toneTable.ptr++] = gain1;	/* GAIN1 */
+						toneTable.data[toneTable.ptr++] = gain2;	/* GAIN2 */
+					}
 				} /* endif tone */
 				else if(mmlCmpStr(mml, "drum") == true)
 				{
@@ -1690,7 +2026,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 						break;
 					}
 					macroName[macroNameInx++] = readValue;
-				}while(MACRO_NAME_MAX > macroNameInx);
+				}while(MACRO_NAME_MAX-1 > macroNameInx);
 				macroName[macroNameInx] = '\0';
 				if(')' != readValue)
 				{
@@ -1840,6 +2176,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 						sprintf(compileErr->message, "addSubroutineListData : Memory alloc error.");
 						addError(compileErr, compileErrList);
 						deleteSubroutineList(&subs);
+						deleteBrrListData(bList);
+						bList = NULL;
 						return false;
 					}
 
@@ -2005,6 +2343,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 						sprintf(compileErr->message, "addSubroutineListData : Memory alloc error.");
 						addError(compileErr, compileErrList);
 						deleteSubroutineList(&subs);
+						deleteBrrListData(bList);
+						bList = NULL;
 						return false;
 					}
 
@@ -2072,6 +2412,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 		word sub1, sub2;
 
 		dataptr = (2*TRACKS);
+		dataptr += DRUMTABLE_LEN*DRUMTABLE_NUMS;
+		dataptr += toneTable.ptr;
 
 		/* ヘッダ作成 */
 		for(i=0; i<TRACKS; i++)
@@ -2079,9 +2421,12 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 			word empty = 0;
 			if(0 == tracks.track[i].ptr)
 			{
+				/* 空トラックヘッダ書き込み */
 				bindataadd(bin, (const byte*)&empty, 2);
 				continue;
 			}
+
+			/* トラックヘッダ書き込み */
 			bindataadd(bin, (const byte*)&dataptr, 2);
 			dataptr += tracks.track[i].ptr;
 
@@ -2110,6 +2455,10 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 				cur = cur->next;
 			}
 		}
+
+		/* 波形定義テーブルの書き出し */
+		bindataadd(bin, (const byte*)drumTable.data, DRUMTABLE_LEN*7);
+		bindataadd(bin, (const byte*)toneTable.data, toneTable.ptr);
 
 		/* 変換データのまとめこみ */
 		for(i=0; i<TRACKS; i++)
@@ -2149,6 +2498,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 	}
 
 	deleteSubroutineList(&subs);
+	*bl = bList;
 	return compileErrList;
 }
 

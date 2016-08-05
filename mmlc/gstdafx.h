@@ -29,6 +29,10 @@
 #endif
 /* end define bool */
 
+#ifndef MAX_PATH
+  #define MAX_PATH 260
+#endif
+
 
 /* data typing */
 #ifndef byte

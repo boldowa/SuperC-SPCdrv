@@ -19,9 +19,21 @@
 #define BASEPOINT 0x2000
 
 /**
+ * 構造体
+ */
+typedef struct tag_stBrrListData {
+	char fname[MAX_PATH];
+	int brrInx;
+	byte md5digest[16];
+
+	struct tag_stBrrListData* next;
+} stBrrListData;
+
+/**
  * 関数
  */
-ErrorNode* compile(MmlMan*, BinMan*);
+ErrorNode* compile(MmlMan*, BinMan*, stBrrListData**);
+void deleteBrrListData(stBrrListData*);
 
 #endif /* _COMPILE_H */
 

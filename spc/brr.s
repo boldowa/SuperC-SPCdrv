@@ -29,6 +29,8 @@ DirTbl:
 ;	DirInfo "./brr/smwpiano.brr"
 .ends
 
+.ifdef _MAKESPC
+
 .orga (DIR<<8 + $100)
 .section "BRR" force
 BrrData:
@@ -42,6 +44,8 @@ BrrData:
 ;	BrrData "./brr/smwpiano.brr"
 	BrrData "./brr/pi_d6.brr"
 .ends
+
+.endif
 
 
 /**

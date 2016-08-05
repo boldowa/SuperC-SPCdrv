@@ -9,6 +9,7 @@
 ;------------------------------
 .enum $00
 	tmpFlg		db
+	toneTblPtr	dw
 .ende
 ;.enum $04
 ;			dw
@@ -18,29 +19,50 @@ CmdSetInstrument:
 	;--- read tone number
 	call	readSeq
 
+SetInstrumentA:
 	;--- switch noise
-	mov	y, a		; N flag check
-	bmi	_Noise
+	cmp	a, #$e0		; e0 ~ ff : noise
+	bcs	_Noise
+
+	cmp	a, #$40
+	bmi	+
+	sbc	a, #$40
+	push	a
+	movw	ya, exToneTablePtr
+	movw	toneTblPtr, ya
+	pop	a
+	bra	++
 
 	;--- calc table size
-	mov	y, #_sizeof_stTone
-	mul	ya
++	mov	toneTblPtr, #(ToneTable & $ff)
+	mov	toneTblPtr+1, #(ToneTable >> 8)
+++	mov	y, #_sizeof_stTone
 
+GetToneCfg:
+	mul	ya
+	addw	ya, toneTblPtr
+	movw	toneTblPtr, ya
 	;--- read tone settings
-	mov	y, a
-	mov	a, !Tone00.brrInx+y
+	mov	y, #0
+	mov	a, [toneTblPtr]+y
 	mov	track.brrInx+x, a
-	mov	a, !Tone00.pitchRatio+y
+	inc	y
+	mov	a, [toneTblPtr]+y
 	mov	track.pitchRatio+x, a
-	mov	a, !Tone00.detune+y
+	inc	y
+	mov	a, [toneTblPtr]+y
 	mov	track.detune+x, a
-	mov	a, !Tone00.adr+y
+	inc	y
+	mov	a, [toneTblPtr]+y
 	mov	track.adr+x, a
-	mov	a, !Tone00.sr+y
+	inc	y
+	mov	a, [toneTblPtr]+y
 	mov	track.sr+x, a
-	mov	a, !Tone00.rr+y
+	inc	y
+	mov	a, [toneTblPtr]+y
 	mov	track.rr+x, a
 	ret
+
 _Noise:
 	;--- mask noise clock
 	and	a, #$1f
@@ -56,11 +78,15 @@ _Noise:
 	mov	a, #TRKFLG_NOISE
 	or	a, track.bitFlags+x
 	mov	track.bitFlags+x, a
+	;--- Instrument clear
+	mov	a, #0
+	mov	track.brrInx+x, a
 	ret
 
 ;------------------------------
 ; local values undefine
 ;------------------------------
 .undefine	tmpFlg
+.undefine	toneTblPtr
 
 

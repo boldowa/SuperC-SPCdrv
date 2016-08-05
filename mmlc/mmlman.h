@@ -46,7 +46,37 @@ typedef struct stMmlMan
 	/**
 	 * ファイル名
 	 */
-	char fname[260];
+	char fname[MAX_PATH];
+
+	/**
+	 * ファイルのあるディレクトリ
+	 */
+	char fdir[MAX_PATH];
+
+	/**
+	 * 曲名
+	 */
+	char spcTitle[32];
+
+	/**
+	 * ゲーム名
+	 */
+	char spcGame[32];
+
+	/**
+	 * 作曲者
+	 */
+	char spcComposer[32];
+
+	/**
+	 * SPCダンパー
+	 */
+	char spcDumper[32];
+
+	/**
+	 * コメント
+	 */
+	char spcComment[32];
 
 	/**
 	 * mml読み込みバッファ
@@ -117,5 +147,6 @@ bool isFirstChar(MmlMan*);
 void skipChars(MmlMan*, int);
 void skipspaces(MmlMan*);
 bool addmacro(MmlMan*);
+int fsize(FILE*);
 
 #endif /* _MMLMAN_H */

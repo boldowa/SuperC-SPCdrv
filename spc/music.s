@@ -156,6 +156,7 @@ _NoteOrCommand:
 	bpl	-
 
 	; 普通のNote($80 ~ $c7)
+_NormalNote:
 	and	a, #$7f
 	mov	track.curKey+x, a
 	mov	a, track.step+x
@@ -264,9 +265,21 @@ _JudgeTieRest:
 _JudgeDrum:
 	cmp	a, #SEQCMD_START
 	bpl	_Commands
-	; todo - Drum Note($ca ~ SEQCMD_START-1, 計7コ)
-	call	LookAheadTie
-	ret
+	; ドラムノート
+	push	a
+	movw	ya, drumToneTablePtr
+	movw	$01, ya
+	pop	a
+	setc
+	sbc	a, #$ca
+	mov	y, #_sizeof_stDrumTone
+	call	GetToneCfg		; 音色を切り替える
+	inc	y
+	mov	a, [$01]+y
+	mov	track.panH+x, a
+	inc	y
+	mov	a, [$01]+y
+	jmp	_NormalNote		; これ以降は普通Noteと同じ処理
 
 _Commands:
 	setc				;\  Jump先をセット
@@ -501,6 +514,105 @@ CmdSetFIR:
 	addw	ya, lSeqPointer
 	movw	lSeqPointer, ya
 	ret
+
+/****************************************/
+/* シーケンスの初期化                   */
+/****************************************/
+InitSequenceData:
+	mov	a, #0
+	mov	y, a
+	mov	x, a
+	mov	drumToneTablePtr, a
+	mov	drumToneTablePtr+1, a
+	mov	exToneTablePtr, a
+	mov	exToneTablePtr+1, a
+	; ベースポインタ読み出し
+	mov	a, !TrackLocation
+	mov	seqBaseAddress, a
+	mov	a, !TrackLocation+1
+	mov	seqBaseAddress+1, a
+	; ドラムトーンテーブル位置の設定
+	mov	drumToneTablePtr, #(MUSICTRACKS*2)
+	movw	ya, seqBaseAddress
+	clrc
+	addw	ya, drumToneTablePtr
+	movw	drumToneTablePtr, ya
+	; 拡張音色テーブル位置の設定
+	mov	exToneTablePtr, #(_sizeof_stDrumTone * 7)
+	clrc
+	addw	ya, exToneTablePtr
+	movw	exToneTablePtr, ya
+
+	; シーケンスアドレスの設定
+	mov	y, #0
+-	mov	a, [seqBaseAddress]+y
+	mov     $00, a
+	inc	y
+	mov	a, [seqBaseAddress]+y
+	mov     $01, a
+	inc	y
+	push    y
+	movw    ya, $00
+	beq     +				; 空トラック
+	clrc
+	addw    ya, seqBaseAddress
+	mov	track.seqPointerL+x, a
+	mov     a, y
+	mov	track.seqPointerH+x, a
++	pop     y
+	inc	x
+	cmp	y, #(MUSICTRACKS*2)
+	bmi	-
+
+	; チャンネルデータの初期化
+	mov	x, #0
+	mov	y, #0
+-	mov	a, #$ff
+	mov	buf_chData.allocTrack+x, a
+	mov	a, #$ff
+	mov	buf_chData.adr+x, a
+	mov	a, #$f0
+	mov	buf_chData.sr+x, a
+	mov	a, x
+	clrc
+	adc	a, #_sizeof_stChannel
+	mov	x, a
+	inc	y
+	cmp	y, #8
+	bmi	-
+
+	; トラックデータの初期化
+	mov	a, #0
+	mov	y, a
+	mov	x, a
+-	mov	a, #0
+	mov	track.bitFlags+x, a
+	mov	track.modulationDepth+x, a
+	mov	track.tremoloDepth+x, a
+	mov	track.pitchBendSpan+x, a
+	mov	track.panL+x, a
+	mov	track.volumeL+x, a
+	call	SetInstrumentA
+	mov	a, #32
+	mov	track.panH+x, a
+	mov	a, #192
+	mov	track.volumeH+x, a
+	inc	x
+	cmp	x, #TRACKS
+	bmi	-
+
+	; 全体データの初期化
+	mov	musicGlobalVolume, a
+	mov	musicTempo, #60
+	mov	eVolRatio, #0
+
+	; ミュート解除
+	mov	SPC_REGADDR, #DSP_FLG
+	mov	SPC_REGDATA, #0
+	ret
+
+TrackLocation:
+	.dw	$2000
 
 ;------------------------------
 ; local values undefine

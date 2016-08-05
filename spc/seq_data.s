@@ -9,6 +9,8 @@
 .include "var.inc"
 .include "seqcmd.inc"
 
+.ifdef _MAKESPC
+
 .orga $2000
 .section "SEQ_DATA" force
 
@@ -53,7 +55,7 @@ _Track5:
 	.db	$00
 
 _Track6:
-	.db	CMD_SET_INST, $9f
+	.db	CMD_SET_INST, $fa
 	.db	CMD_VOLUME, $80
 	.db	CMD_PAN, $20
 	.db	$30, $7f
@@ -174,3 +176,6 @@ _Sub2:
 	.db	CMD_SUBROUTINE_RETURN
 
 .ends
+
+.endif
+

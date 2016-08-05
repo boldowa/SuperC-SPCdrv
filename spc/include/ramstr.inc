@@ -81,7 +81,7 @@
 	pitchRatio	db		; ピッチ倍率
 	detune		db		; デチューン
 	adr		db		; Attack and Decay rate
-	sr		db		; Sustain rate
+	sr		db		; Sustain rate またはGAIN
 	rr		db		; Release rate
 .endst
 ;----------------------------------------
@@ -94,8 +94,8 @@
 	adr		db		; Attack and Decay rate
 	sr		db		; Sustain rate
 	rr		db		; Release rate
-	note		db		; 鳴らす音階値
 	panpot		db		; ドラムのパンポット
+	note		db		; 鳴らす音階値
 .endst
 
 

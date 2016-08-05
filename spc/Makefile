@@ -59,10 +59,10 @@ spc:
 
 linkfile: $(OBJS) $(LIBS)
 	@echo -n  "Creating linkfile ... "
-	@echo     "[objects]" > linkfile
-	@for obj in $(OBJS) ; do echo $$obj >> linkfile ; done
-	@echo     "[libraries]" >> linkfile
+	@echo     "[libraries]" > linkfile
 	@for lib in $(LIBS) ; do echo bank 3 slot 3 $$lib >> linkfile ; done
+	@echo     "[objects]" >> linkfile
+	@for obj in $(OBJS) ; do echo $$obj >> linkfile ; done
 	@echo     "done!!"
 
 # tagsファイルは、ctagsコマンドが無い場合は作成しません
