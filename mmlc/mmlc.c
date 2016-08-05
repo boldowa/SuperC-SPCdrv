@@ -417,14 +417,14 @@ int main(const int argc, const char** argv)
 		int brrsize;
 		word brrHead;
 
-		brrFile = fopen(brrList->fname, "rb");
+		brrFile = fopen(blread->fname, "rb");
 		if(brrFile == NULL)
 		{
+			puterror("Make SPC: BRR file read error (%s).", blread->fname);
 			deleteBrrListData(brrList);
 			mmlclose(&mml);
 			binfree(&binary);
 			free(spcCore);
-			puterror("Make SPC: BRR file read error (%s).", brrList->fname);
 			return -1;
 		}
 
@@ -439,12 +439,12 @@ int main(const int argc, const char** argv)
 
 		if( brrsize < 11 || (0 != ((brrsize -2) % 9)) )
 		{
+			puterror("Make SPC: BRR file size error (%s).", blread->fname);
 			deleteBrrListData(brrList);
 			mmlclose(&mml);
 			binfree(&binary);
 			free(spcCore);
 			fclose(brrFile);
-			puterror("Make SPC: BRR file size error (%s).", brrList->fname);
 			return -1;
 		}
 
@@ -464,7 +464,7 @@ int main(const int argc, const char** argv)
 
 		fclose(brrFile);
 
-		blread = brrList->next;
+		blread = blread->next;
 	}
 
 	/* シーケンスデータをコピーする */

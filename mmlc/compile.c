@@ -230,7 +230,8 @@ stBrrListData* makeBrrListData(char *brrname, int *brrInx, byte *md5)
 	{
 		memset(data, 0, sizeof(stBrrListData));
 		strcpy(data->fname, brrname);
-		data->brrInx = *brrInx++;
+		data->brrInx = (*brrInx)++;
+		memcpy(data->md5digest, md5, 16);
 		data->next = NULL;
 	}
 
@@ -273,13 +274,24 @@ stBrrListData* addBrrListData(stBrrListData* bList, char *fname, int *brrInx, by
 	}
 
 	/* 同一BRRデータかチェックする */
-	if(0 == strcmp(bList->fname, fname) || memcmp(bList->fname, md5, 16))
+	if(0 == strcmp(bList->fname, fname) || (0 == memcmp(bList->fname, md5, 16)) )
 	{
 		return bList;
 	}
 
-	/* 再帰呼び出しにより、子要素をチェック */
-	return addBrrListData(bList->next, fname, brrInx, md5);
+	if(bList->next != NULL)
+	{
+		/* 再帰呼び出しにより、子要素をチェック */
+		return addBrrListData(bList->next, fname, brrInx, md5);
+	}
+
+	bList->next = makeBrrListData(fname, brrInx, md5);
+	if(NULL == bList->next)
+	{
+		return NULL;
+	}
+
+	return bList->next;
 }
 
 /**

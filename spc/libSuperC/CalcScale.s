@@ -45,7 +45,7 @@ _ScaleJoin:
 -	inc	x
 	lsr	lPitchH
 	ror	a
-+	cmp	x, #5
++	cmp	x, #6
 	bmi	-
 	mov	y, lPitchH
 	ret
