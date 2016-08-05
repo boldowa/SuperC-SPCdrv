@@ -21,12 +21,10 @@ CmdEchoParam:
 	; Volume
 	call	readSeq
 	mov	eVolRatio, a
-
 	; Delay
 	call	readSeq
 	mov	SPC_REGADDR, #$7d
 	mov	SPC_REGDATA, a
-
 	; Feed-back
 	call	readSeq
 	mov	SPC_REGADDR, #$0d

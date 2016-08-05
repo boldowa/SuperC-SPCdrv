@@ -64,9 +64,13 @@
 	modulationDepth	dsb	TRACKS
 	modulationPhase	dsb	TRACKS
 	modulationWaits	dsb	TRACKS
-	PitchSpan	dsb	TRACKS
-	PitchCounter	dsb	TRACKS
-	PitchPhase	dsb	TRACKS
+	pitchBendDelay	dsb	TRACKS
+	pitchBendSpan	dsb	TRACKS
+	pitchBendDiff	dsb	TRACKS
+	pitchBendWaits	dsb	TRACKS
+	pitchBendDelta	dsb	TRACKS
+	pitchBendPhase	dsb	TRACKS
+	pitchBendKey	dsb	TRACKS
 .endst
 
 ;----------------------------------------
@@ -79,6 +83,19 @@
 	adr		db		; Attack and Decay rate
 	sr		db		; Sustain rate
 	rr		db		; Release rate
+.endst
+;----------------------------------------
+; ドラム用音色テーブル構成
+;----------------------------------------
+.struct stDrumTone
+	brrInx		db		; 波形番号
+	pitchRatio	db		; ピッチ倍率
+	detune		db		; デチューン
+	adr		db		; Attack and Decay rate
+	sr		db		; Sustain rate
+	rr		db		; Release rate
+	note		db		; 鳴らす音階値
+	panpot		db		; ドラムのパンポット
 .endst
 
 

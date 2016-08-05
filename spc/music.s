@@ -111,6 +111,9 @@ ReleaseChannel:
 _RetChAlloc:
 	mov	a, y			;\ 解析中Trackインデックスを復元
 	mov	x, a			;/
+	; --- ONのままにしておくと後に影響が出るパラメータ類のリセット
+	mov	a, #0
+	mov	track.pitchBendSpan+x, a	; 切っておかないと、次の音もスライドする
 	ret
 	; --- トラック解析終了処理 --- ここまで
 

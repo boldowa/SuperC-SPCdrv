@@ -1022,14 +1022,16 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin)
 					sprintf(compileErr->message, "Octave swap => '%c' is Up", octaveSwap ? '<' : '>');
 					addError(compileErr, compileErrList);
 				} /* endif swap<> */
-				else if(mmlCmpStr(mml, "drum") == true)
-				{
-					/* TODO: 実装 */
-				}
 				else if(mmlCmpStr(mml, "tone") == true)
 				{
+					skipspaces(mml);
 					/* TODO: 実装 */
-				}
+				} /* endif tone */
+				else if(mmlCmpStr(mml, "drum") == true)
+				{
+					skipspaces(mml);
+					/* TODO: 実装 */
+				} /* endif drum */
 				else if(mmlCmpStr(mml, "macro") == true)
 				{
 					newError(mml, compileErr, compileErrList);

@@ -64,8 +64,9 @@ _Track2:
 	.db	CMD_VOLUME, $ff
 	.db	CMD_SET_INST, $04
 _Join:
-	.db	CMD_MODURATION, $00, $10, $40
-	.db	CMD_TREMOLO, $00, $02, $80
+	.db	CMD_MODURATION, $10, $08, $20
+;	.db	CMD_TREMOLO, $00, $04, $c0
+	.db	CMD_PITCHBEND, $00, $10, -12
 	.db	CMD_ECHO_ON
 	.db	CMD_PORTAM_ON
 	.db	CMD_PAN, $10

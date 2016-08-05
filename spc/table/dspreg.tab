@@ -12,7 +12,7 @@
 ;       DSP: 0x00 ～ 0x5c : 0 fill
 	.dsb $5d 0
 ;       DSP: 0x5d : DIR
-	.db   DIR
+	.db   (DirTbl>>8)
 ;       DSP: 0x5e ～ 0x6b : 0 fill
 	.dsb 15 0
 ;	DSP 0x6c : FLG

@@ -82,6 +82,9 @@ __	mov	[$00]+y, a
 	mov	sndTempoCounter, a	; | こうすることで、テンポが0以外なら
 	mov	musicTempoCounter, a	;/  初回のtick動作で必ず解析処理が実行されます
 
+; 特殊波形用の周波数値に初期値を入れます
+	mov	specialWavFreq, #SPECIAL_WAV_FREQ
+
 ; --- メインのループ処理です
 _mainLoop:
 	call	IOCommProcess		; SNES<-->APU通信処理
@@ -123,12 +126,20 @@ _Music:
 	clrc
 	adc	a, musicTempoCounter
 	mov	musicTempoCounter, a
-	bcc	_End
+	bcc	_SpecialWav
 
 	clr1	rootSysFlags.1		; 効果音解析中状態を解除します
 	call	MusicProcess		; 音楽処理を行います
 	set1	rootSysFlags.0		; DSP更新を予約します
 	
+_SpecialWav:				; 特殊波形の処理
+	mov	a, specialWavFreq
+	clrc
+	adc	a, specialWavFreqCounter
+	mov	specialWavFreqCounter, a
+	bcc	_End
+	call	SpecialWavFunc
+
 _End:
 	dbnz	taskCounter, -
 
@@ -157,7 +168,7 @@ TAB_DSP_INIT:
 	.db   DSP_EON,     0
 	.db   DSP_PMON,    0
 	.db   DSP_NON,     0
-	.db   DSP_DIR,   DIR
+	.db   DSP_DIR,   (DirTbl>>8)
 	.db   DSP_EDL      0
 	.db   DSP_ESA    ESA
 

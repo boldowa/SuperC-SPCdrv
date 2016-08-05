@@ -37,6 +37,7 @@ CmdTable:
 	.dw	CmdSubroutine
 	.dw	CmdSubroutineReturn
 	.dw	CmdSubroutineBreak
+	.dw	CmdPitchBend
 
 CmdLengthTable:
 	.db	2	; CmdSetInstrument
@@ -58,6 +59,7 @@ CmdLengthTable:
 	.db	4	; CmdSubroutine
 	.db	1	; CmdSubroutineReturn
 	.db	1	; CmdSubroutineBreak
+	.db	4	; CmdPitchBend
 
 ;--------------------------------------------------
 ; Command Include
@@ -73,6 +75,7 @@ CmdLengthTable:
 .include	"CmdPitchModulation.s"
 .include	"CmdTremolo.s"
 .include	"CmdSubroutine.s"
+.include	"CmdPitchBend.s"
 
 .ends
 

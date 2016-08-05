@@ -120,9 +120,46 @@ _ChannelLoop:
 	push	x
 	mov	x, a
 
+	/****************************************/
+	/* ピッチベンド処理１                   */
+	/****************************************/
+	mov	a, track.pitchBendSpan+x
+	beq	_CalcPitch
+	mov	a, track.pitchBendDelay+x
+	beq	_PitchBend
+	dec	a
+	mov	track.pitchBendDelay+x, a
+	bra	_CalcPitch
+_PitchBend:
+	mov	a, track.pitchBendSpan+x
+	dec	a
+	mov	track.pitchBendSpan+x, a
+	mov	a, track.pitchBendDiff+x
+	bmi	_Bend2
+	mov	a, track.pitchBendDelta+x
+	clrc
+	adc	a, track.pitchBendPhase+x
+	mov	track.pitchBendPhase+x, a
+	mov	lTemp, a
+	mov	a, track.curKey+x
+	adc	a, track.pitchBendKey+x
+	mov	track.curKey+x, a
+	bra	_BendJoin
+_Bend2:
+	mov	a, track.pitchBendPhase+x
+	setc
+	sbc	a, track.pitchBendDelta+x
+	mov	track.pitchBendPhase+x, a
+	mov	lTemp, a
+	mov	a, track.curKey+x
+	sbc	a, track.pitchBendKey+x
+	mov	track.curKey+x, a
+
+_BendJoin:
 	/******************************/
 	/* Pitchを計算する            */
 	/******************************/
+_CalcPitch
 	push	x
 	mov	a, track.curKey+x
 	push	a
@@ -134,15 +171,22 @@ _ChannelLoop:
 	pop	x
 
 	/****************************************/
-	/* ピッチのスライド処理                 */
+	/* ピッチベンド処理２                   */
 	/****************************************/
-	mov	a, track.PitchCounter+x
-	bne	+
-	mov	a, track.PitchPhase
+	mov	a, track.pitchBendSpan+x
+	beq	_Detune
+	mov	$04, lPitchDif+1
+	mov	a, lPitchDif
+	mov	y, a
+	mov	a, lTemp
+	call	mul16_8
+	addw	ya, lPitch
+	movw	lPitch, ya
 
 	/****************************************/
 	/* デチューン値の適用                   */
 	/****************************************/
+_Detune:
 	mov	$04, lPitchDif+1
 	mov	a, lPitchDif
 	mov	y, a
@@ -174,8 +218,6 @@ _Tremolo:
 	clrc
 	adc	a, track.tremoloPhase+x
 	mov	track.tremoloPhase+x, a
-	asl	a
-	asl	a
 	mov	y, a
 	mov	a, track.tremoloDepth+x
 	mul	ya
@@ -186,6 +228,7 @@ _Tremolo:
 	mul	ya
 	mov	a, y
 	bra	_CalcVol
+
 	/******************************/
 	/* Volumeを計算する           */
 	/******************************/
@@ -371,12 +414,12 @@ _BeforeChannelLoop:
 +	mov	buf_eVol, a
 
 	/****************************************/
-	/* エコー使用chが無い場合にECENを切る   */
+	/* エコー音量が0の場合、エコー無効にする*/
 	/****************************************/
 	mov	SPC_REGADDR, #DSP_FLG
 	mov	a, SPC_REGDATA
 	and	a, #(FLG_ECEN ~ $ff)
-	mov	y, buf_echo
+	mov	y, buf_eVol
 	bne	+
 	or	a, #FLG_ECEN
 +	mov	SPC_REGDATA, a

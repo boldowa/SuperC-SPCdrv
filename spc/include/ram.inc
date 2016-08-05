@@ -64,6 +64,9 @@
 	musicTempoCounter		db	; 音楽テンポカウンタ
 	musicTempo			db	; 音楽テンポ
 	musicGlobalVolume		db	; 音楽ボリューム
+	specialWavFreq			db	; 特殊波形の周波数
+	specialWavFreqCounter		db	; 特殊波形の周波数カウンタ
+	specialWavPtr			db	; 特殊波形の処理ポインタ値
 	eVolRatio			db	; エコー音量
 	seChNums			db	; 効果音に割り当て可能なCH数
 	ZERO				dw	; 恒久的に0を持つ2バイト領域
