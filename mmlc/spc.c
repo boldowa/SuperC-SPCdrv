@@ -192,6 +192,7 @@ bool makeSPC(byte* spc, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData
 	stID666_Text* id666;
 	int coreEnd;
 	int aramWritePtr;
+	int freeSize;
 	int esa;
 	stBrrListData* blread;
 	FILE* brr;
@@ -265,6 +266,11 @@ bool makeSPC(byte* spc, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData
 			puterror("makeSPC: BRR file size error (%s).", blread->fname);
 			return false;
 		}
+		if(0x10000 <= ((brrsize-2)+aramWritePtr))
+		{
+			puterror("makeSPC: Insert data size is too big.");
+			return false;
+		}
 
 		/* BRRループヘッダ読み出し */
 		fread(&brrLoop, sizeof(word), 1, brr);
@@ -285,8 +291,18 @@ bool makeSPC(byte* spc, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData
 	}
 
 	/* シーケンスデータをセットします */
+	if(0x10000 <= (seq->dataInx+aramWritePtr))
+	{
+		puterror("makeSPC: Insert data size is too big.");
+		return false;
+	}
 	*(word*)&spc[0x100 + core->seqBasePoint] = aramWritePtr;
 	memcpy(&spc[0x100 + aramWritePtr], seq->data, seq->dataInx);
+
+	freeSize = 0x10000 - aramWritePtr;
+	printf("Make SPC success.\n");
+	printf("  Total data size: %d bytes\n", aramWritePtr);
+	printf("  %d bytes(%.2f%%) free.\n", freeSize, (((double)freeSize/0x10000)*100));
 
 	return true;
 }
