@@ -218,7 +218,7 @@ bool makeSPC(byte* spc, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData
 	memcpy(id666->comment, mml->spcComment, 32);
 
 	/* DSPレジスタ情報をセットします */
-	spc[0x1005d] = (core->dir >> 8);
+	spc[0x1015d] = (core->dir >> 8);
 
 	/* SPCコアデータをセットします */
 	memcpy(&spc[0x100 + core->location], core->data, core->size);

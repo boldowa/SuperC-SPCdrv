@@ -211,7 +211,7 @@ int main(const int argc, const char** argv)
 	BinMan binary;
 	TIME startTime, endTime;
 	stBrrListData *brrList = NULL;
-	byte spcBuffer[0x10100];
+	byte spcBuffer[0x10200];
 	stSpcCore spcCore;
 
 	getTime(&startTime);
@@ -219,7 +219,7 @@ int main(const int argc, const char** argv)
 	/* 初期化 */
 	memset(&mml, 0, sizeof(MmlMan));
 	memset(&binary, 0, sizeof(BinMan));
-	memset(spcBuffer, 0, 0x10100);
+	memset(spcBuffer, 0, 0x10200);
 
 	/* オプション展開 */
 	if(!parseOption(argc, argv))
@@ -311,7 +311,7 @@ int main(const int argc, const char** argv)
 
 	/* SPCデータを書き出します */
 	/* fwrite(binary.data, sizeof(byte), binary.dataInx, outf); */
-	fwrite(spcBuffer, sizeof(byte), 0x10100, outf);
+	fwrite(spcBuffer, sizeof(byte), 0x10200, outf);
 	fclose(outf);
 
 	/* 終了処理 */
