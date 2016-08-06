@@ -22,15 +22,13 @@
 
 /* ドラム定義テーブル長 */
 #define DRUMTABLE_LEN 8
-/* ドラム定義の最大数 */
-#define DRUMTABLE_NUMS 7
 
 /* 変換系関数用のテンポラリバッファ長 */
 #define TMP_BUFFER_SIZE 32
 
 /* オクターブ範囲 */
 #define OCTAVE_MIN 1
-#define OCTAVE_MAX 6
+#define OCTAVE_MAX 7
 
 /* timebase MAX値 */
 #define TIMEBASE_MAX 0x60
@@ -38,12 +36,14 @@
 /**
  * コマンド定義
  */
-#define TIE  0xc8
-#define REST 0xc9
+#define TIE  ((12*OCTAVE_MAX) | 0x80)
+#define REST (TIE + 1)
+#define DRUM_NOTE (REST + 1)
+#define DRUM_NOTE_NUMS 7
 enum commandlist{
 	/* ※注 : SuperCのinclude/seqcmd.inc 内の */
 	/*        コマンド定義順に合わせること    */
-	CMD_SET_INST	= 0xd1,
+	CMD_SET_INST	= DRUM_NOTE + DRUM_NOTE_NUMS,
 	CMD_VOLUME,
 	CMD_PAN,
 	CMD_JUMP,
@@ -773,7 +773,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 	/**
 	 * ドラムトーンテーブル
 	 */
-	byte drumTable[DRUMTABLE_LEN*DRUMTABLE_NUMS];
+	byte drumTable[DRUMTABLE_LEN*DRUM_NOTE_NUMS];
 	int drumTableCtr = 0;
 
 #if 0
@@ -813,7 +813,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 
 	/* 音色テーブルの初期化 */
 	memset(&toneTable, 0, sizeof(Track));
-	memset(drumTable, 0, DRUMTABLE_LEN*DRUMTABLE_NUMS);
+	memset(drumTable, 0, DRUMTABLE_LEN*DRUM_NOTE_NUMS);
 
 	while(mml->iseof == false)
 	{
@@ -972,7 +972,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						else if(readValue == '-')
 						{
 							mmlgetforward(mml);
-							scale++;
+							scale--;
 						}
 
 						/* トランスポーズ */
@@ -1203,7 +1203,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					{
 						validNums += 2;
 
-						if( (DRUMTABLE_LEN*DRUMTABLE_NUMS) <= drumTableCtr)
+						if( (DRUMTABLE_LEN*DRUM_NOTE_NUMS) <= drumTableCtr)
 						{
 							newError(mml, compileErr, compileErrList);
 							compileErr->type = SyntaxError;
@@ -2453,6 +2453,88 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				}
 
 			/******************************************/
+			/* ラベルループ / リモートコマンド        */
+			/******************************************/
+			case '(':
+			{
+				int nums;
+
+				if('!' == mmlgetch(mml)) /* リモートコマンド */
+				{
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "REMOTE COMMAND IS NOT IMPLEMENT.");
+					addError(compileErr, compileErrList);
+					break;
+				}
+
+				/* ラベルループ */
+				newError(mml, compileErr, compileErrList);
+				compileErr->type = ErrorNone;
+				compileErr->level = ERR_DEBUG;
+				sprintf(compileErr->message, "Label loop");
+				addError(compileErr, compileErrList);
+
+				/* ラベルの数字チェック */
+				if(1 != getNumbers(mml, tempVal, compileErrList))
+				{
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "Invalid label number.");
+					addError(compileErr, compileErrList);
+					continue;
+				}
+				/* ラベルが閉じられているかチェック */
+				if(')' != mmlgetch(mml))
+				{
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "Label is not closed.");
+					addError(compileErr, compileErrList);
+					continue;
+				}
+				mmlgetforward(mml);
+
+				/* ラベルの後の数字入力をチェック */
+				nums = getNumbers(mml, tempVal, compileErrList);
+				if(nums < getNumbers(mml, tempVal, compileErrList))
+				{
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "Invalid label number.");
+					addError(compileErr, compileErrList);
+					continue;
+				}
+				if(nums == 1)
+				{
+					/* ラベルループの再利用 */
+					/* TODO: ラベルループ再利用定義 */
+				}
+
+				/* あまりないと思うが、"(1) [cccc]" 等、ラベル後のスペース入力に対応する */
+				skipspaces(mml);
+
+				/* ラベルが開始されているかチェック */
+				if('[' != mmlgetch(mml))
+				{
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "Invalid label.");
+					addError(compileErr, compileErrList);
+					continue;
+				}
+				mmlgetforward(mml);
+
+				/* TODO : ラベルループ定義 */
+				break;
+			}
+
+			/******************************************/
 			/* 解析の中断                             */
 			/******************************************/
 			case '!':
@@ -2509,7 +2591,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 		word sub1, sub2;
 
 		dataptr = (2*TRACKS);
-		dataptr += DRUMTABLE_LEN*DRUMTABLE_NUMS;
+		dataptr += DRUMTABLE_LEN*DRUM_NOTE_NUMS;
 		dataptr += toneTable.ptr;
 
 		/* ヘッダ作成 */
@@ -2554,7 +2636,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 		}
 
 		/* 波形定義テーブルの書き出し */
-		bindataadd(bin, drumTable, DRUMTABLE_LEN*DRUMTABLE_NUMS);
+		bindataadd(bin, drumTable, DRUMTABLE_LEN*DRUM_NOTE_NUMS);
 		bindataadd(bin, (const byte*)toneTable.data, toneTable.ptr);
 
 		/* 変換データのまとめこみ */

@@ -9,6 +9,7 @@
 .incdir  "./include/"
 .include "spc.inc"
 .include "var.inc"
+.include "seqcmd.inc"
 
 
 .incdir "./libSuperC/"

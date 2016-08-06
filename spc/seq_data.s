@@ -33,15 +33,15 @@ _Track1:
 	.db	CMD_ECHO_PARAM, $c0, $04, $40
 _T1Lp:
 	.db	CMD_TEMPO, 45
-	.db	$c9, $c9
+	.db	REST, REST
 	.db	CMD_TEMPO, 80
-	.db	$c9, $c9
+	.db	REST, REST
 	.db	CMD_TEMPO, 160
-	.db	$c9, $c9
+	.db	REST, REST
 	.db	CMD_TEMPO, 255
-	.db	$c9, $c9
+	.db	REST, REST
 	.db	CMD_TEMPO, 20
-	.db	$c9, $c9
+	.db	REST, REST
 	.db	CMD_JUMP
 	.dw	(_T1Lp-TrackHeader)
 _T1End:
@@ -80,7 +80,7 @@ _Join:
 	.db	CMD_PORTAM_OFF
 	.db	$b0, $bc
 	.db	CMD_PAN, $e0
-	.db	$b0, $c9
+	.db	$b0, REST
 	.db	CMD_SUBROUTINE, 0
 	.dw	(_Sub1-TrackHeader)
 	.db	CMD_JUMP
@@ -89,7 +89,7 @@ _Track2End:
 
 _Track3:
 	.db	$0c
-	.db	$c9
+	.db	REST
 	.db	CMD_SET_INST, $04
 	.db	CMD_VOLUME, $80
 	.db	CMD_JUMP
@@ -98,7 +98,7 @@ _Track3End:
 
 _Track4:
 	.db	$18
-	.db	$c9
+	.db	REST
 	.db	CMD_SET_INST, $04
 	.db	CMD_VOLUME, $40
 	.db	CMD_JUMP
@@ -107,7 +107,7 @@ _Track4End:
 
 _Track7:
 	.db	$24
-	.db	$c9
+	.db	REST
 	.db	CMD_SET_INST, $04
 	.db	CMD_VOLUME, $20
 	.db	CMD_JUMP
@@ -116,7 +116,7 @@ _Track7End:
 
 _Track8:
 	.db	$30
-	.db	$c9
+	.db	REST
 	.db	CMD_SET_INST, $04
 	.db	CMD_VOLUME, $10
 	.db	CMD_JUMP
@@ -159,13 +159,13 @@ _Track13:	; ƒ|ƒeƒg
 	.db	CMD_VOLUME, $70
 	.db	CMD_PAN, $20
 	.db	$18, $6f
-	.db	$ab, $a9, $ab, $c9
+	.db	$ab, $a9, $ab, REST
 	.db	CMD_JUMP
 	.dw	(_Track13-_Track13End)
 _Track13End:
 
 _Sub1:
-	.db	$b0, $b0, $b0, $c9
+	.db	$b0, $b0, $b0, REST
 	.db	CMD_SUBROUTINE, 3
 	.dw	(_Sub2-TrackHeader)
 	.db	$a0

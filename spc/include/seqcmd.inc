@@ -8,9 +8,26 @@
 .define _SEQCMD_INC
 
 ;------------------------------------------------
+; SEQ OCTAVE RANGE
+;------------------------------------------------
+.define OCTAVE_RANGE	7
+
+;------------------------------------------------
+; TIE and REST
+;------------------------------------------------
+.define TIE		((12 * OCTAVE_RANGE) | $80)
+.define REST		(TIE + 1)
+
+;------------------------------------------------
+; Drum note numbers
+;------------------------------------------------
+.define DRUM_NOTE	REST + 1
+.define DRUM_NOTE_NUMS	7
+
+;------------------------------------------------
 ; Command Start Point
 ;------------------------------------------------
-.define SEQCMD_START	$d1
+.define SEQCMD_START	(DRUM_NOTE + DRUM_NOTE_NUMS)
 
 ;------------------------------------------------
 ; Commands
@@ -36,8 +53,13 @@
 	CMD_SUBROUTINE_RETURN	db
 	CMD_SUBROUTINE_BREAK	db
 	CMD_PITCHBEND		db
+
+	SEQCMDEND		db
 .ende
 
+.printt "SEQCMDEND: 0x"
+.printv hex SEQCMDEND-1
+.printt "\n"
 
 .endif
 

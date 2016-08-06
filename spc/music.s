@@ -152,7 +152,7 @@ _RetChAlloc:
 
 -	jmp	_JudgeTieRest
 _NoteOrCommand:
-	cmp	a, #$c8
+	cmp	a, #TIE
 	bpl	-
 
 	; 普通のNote($80 ~ $c7)
@@ -245,15 +245,15 @@ _AllocFailed:
 	ret
 
 _JudgeTieRest:
-	cmp	a, #$ca
+	cmp	a, #DRUM_NOTE
 	bpl	_JudgeDrum
 	push	a
-	;--- c8 : tie, c9 : Rest
+	;--- 休符判定
 	mov	a, track.step+x
 	dec	a
 	mov	track.stepLeft+x, a
 	pop	a
-	cmp	a, #$c9
+	cmp	a, #REST
 	beq	+
 	; --- Tieの為の先読み処理
 	call	LookAheadTie
@@ -271,7 +271,7 @@ _JudgeDrum:
 	movw	$01, ya
 	pop	a
 	setc
-	sbc	a, #$ca
+	sbc	a, #DRUM_NOTE
 	mov	y, #_sizeof_stDrumTone
 	call	GetToneCfg		; 音色を切り替える
 	inc	y
@@ -384,7 +384,7 @@ LookAheadTie:
 	bmi	+
 	inc	y
 	bra	-
-+	cmp	a, #$c8			; is tie?
++	cmp	a, #TIE			; is tie?
 	beq	_Tie
 
 +	cmp	a, #SEQCMD_START
@@ -449,7 +449,7 @@ _skipCmd:
 
 _NotTie:
 	pop	x
-	cmp	a, #$c9				; 次が休符の場合は音を止めます
+	cmp	a, #REST			; 次が休符の場合は音を止めます
 	beq	+
 	mov	a, track.bitFlags+x
 	and	a, #TRKFLG_PORTAM
