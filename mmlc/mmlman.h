@@ -79,6 +79,11 @@ typedef struct stMmlMan
 	char spcComment[32];
 
 	/**
+	 * EDLの最大値
+	 */
+	int maxEDL;
+
+	/**
 	 * mml読み込みバッファ
 	 * ※直接読出し(ex. mml->readbuff[foo]) は、
 	 *   mmlman.c以外禁止

@@ -21,7 +21,7 @@
 .define SND_TEMPO            56
 ;.define MUSIC_TEMPO_DEFAULT  54
 .define MUSIC_TEMPO_DEFAULT  10
-.define SPECIAL_WAV_FREQ 16
+.define SPECIAL_WAV_FREQ 8
 
 .endif
 

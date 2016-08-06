@@ -8,6 +8,7 @@
 #include "compile.h"
 #include "mmlman.h"
 #include "binaryman.h"
+#include "spc.h"
 #include "errorman.h"
 #include "timefunc.h"
 
@@ -32,41 +33,6 @@ bool helped = false;
 bool vdebug = false; /* TODO: リリース時はfalseにする */
 char* in_file_name = NULL;
 char* out_file_name = NULL;
-
-/************************************************************/
-/* SPC出力用定義                                            */
-/************************************************************/
-typedef struct {
-	char headerInfo[33];
-	unsigned char cutHeaderAndData[2];
-	unsigned char tagType[1];
-	unsigned char tagVersion[1];
-	unsigned char pc[2];
-	unsigned char a[1];
-	unsigned char x[1];
-	unsigned char y[1];
-	unsigned char psw[1];
-	unsigned char sp[1];
-	unsigned char reserved[2];
-	char songTitle[32];
-	char gameTitle[32];
-	char dumper[16];
-	char comment[32];
-	unsigned char musicInfo[19];		/* Not used, and lazy :p */
-	char composer[32];
-	unsigned char defaultChannelDisable[1];
-	unsigned char emulator[1];
-	unsigned char unused[45];
-} stID666_Text;
-typedef struct {
-	char DirTxt[4];		/* DIR */
-	byte dir[2];
-	char TableTxt[4];	/* TBL */
-	byte locTable[2];
-	char CodeTxt[5];	/* CODE */
-	byte codeStart[2];
-} stSuperCHead;
-
 
 /******************************************************************************/
 
@@ -239,24 +205,14 @@ void showCompileError(ErrorNode* err, char* fname)
 int main(const int argc, const char** argv)
 {
 	FILE *outf = NULL;
-	FILE *corefile = NULL;
-	FILE *brrFile = NULL;
 	ErrorNode* errList = NULL;
 	ErrorLevel errLevel = ERR_DEBUG;
 	MmlMan mml;
 	BinMan binary;
 	TIME startTime, endTime;
 	stBrrListData *brrList = NULL;
-	stBrrListData *blread = NULL;
-	byte* spcCore;
-	int coresize;
-	int spccodesize;
 	byte spcBuffer[0x10100];
-	byte brrBuffer[BRR_BUF];
-	int readLen;
-	stSuperCHead* spcdrvhead;
-	stID666_Text* id666;
-	int spcWritePtr;
+	stSpcCore spcCore;
 
 	getTime(&startTime);
 
@@ -276,28 +232,18 @@ int main(const int argc, const char** argv)
 	}
 
 	/* SPCドライバコアファイルを読み込みます */
-	corefile = fopen("spccore.bin", "rb");
-	if(NULL == corefile)
+	if(false == coreread(&spcCore, "spccore.bin"))
 	{
-		putfatal("Can't open \"spccore.bin\".");
+		putfatal("Can't read \"spccore.bin\".");
 		return -1;
 	}
-	coresize = fsize(corefile);
-	spcCore = (byte*)malloc(coresize);
-	if(NULL == spcCore)
-	{
-		putfatal("Can't open \"spccore.bin\". (memory allocate error)");
-		fclose(corefile);
-		return -1;
-	}
-	fread(spcCore, sizeof(byte), coresize, corefile);
-	fclose(corefile);
+	printf("spc core Version: %02x.%02x\n", spcCore.ver, spcCore.verMiner);
 
 	/* mmlファイルを読出します */
 	if(mmlopen(&mml, in_file_name) == false)
 	{
 		puterror("Input file \"%s\" is not found.", in_file_name);
-		free(spcCore);
+		freecore(&spcCore);
 		return -1;
 	}
 	putdebug("--- MML read success.");
@@ -306,7 +252,7 @@ int main(const int argc, const char** argv)
 	if(bininit(&binary) == false)
 	{
 		mmlclose(&mml);
-		free(spcCore);
+		freecore(&spcCore);
 		puterror("Memory capacity over.");
 		return -1;
 	}
@@ -317,7 +263,7 @@ int main(const int argc, const char** argv)
 	{
 		binfree(&binary);
 		mmlclose(&mml);
-		free(spcCore);
+		freecore(&spcCore);
 		puterror("Output file \"%s\" couldn't open.", out_file_name);
 		return -1;
 	}
@@ -345,137 +291,25 @@ int main(const int argc, const char** argv)
 		mmlclose(&mml);
 		binfree(&binary);
 		fclose(outf);
-		free(spcCore);
+		freecore(&spcCore);
 		remove(out_file_name);
 		return -1;
 	}
 
-	/* SPCデータを作成する準備をします */
-	id666 = (stID666_Text*)&spcBuffer[0];
-	spcdrvhead = (stSuperCHead*)&spcCore[0];
-	spccodesize = coresize - sizeof(stSuperCHead);
-
-	/* データチェック */
-	if(0 != strcmp(spcdrvhead->DirTxt, "DIR"))
+	/* SPCデータを生成します */
+	if(false == makeSPC(spcBuffer, &spcCore, &mml, &binary, brrList))
 	{
-		putfatal("Dir not match");
+		puterror("makeSPC failed.");
 		deleteBrrListData(brrList);
 		mmlclose(&mml);
 		binfree(&binary);
 		fclose(outf);
-		free(spcCore);
-		remove(out_file_name);
-		return -1;
-	}
-	if(0 != strcmp(spcdrvhead->TableTxt, "TBL"))
-	{
-		putfatal("Table not match");
-		deleteBrrListData(brrList);
-		mmlclose(&mml);
-		binfree(&binary);
-		fclose(outf);
-		free(spcCore);
-		remove(out_file_name);
-		return -1;
-	}
-	if(0 != strcmp(spcdrvhead->CodeTxt, "CODE"))
-	{
-		putfatal("Code not match");
-		deleteBrrListData(brrList);
-		mmlclose(&mml);
-		binfree(&binary);
-		fclose(outf);
-		free(spcCore);
+		freecore(&spcCore);
 		remove(out_file_name);
 		return -1;
 	}
 
-	printf("DIR : 0x%x\n", *(word*)spcdrvhead->dir);
-	printf("TBL : 0x%x\n", *(word*)spcdrvhead->locTable);
-	printf("CODE START : 0x%x\n", *(word*)&spcdrvhead->codeStart);
-	printf("CODESIZE : 0x%x\n", spccodesize);
-
-	/* ID666 ヘッダを書き込みます */
-	memcpy(id666->headerInfo, "SNES-SPC700 Sound File Data v0.30", 33);
-	memcpy(id666->cutHeaderAndData, "\x1a\x1a", 2);
-	memcpy(id666->tagType, "\x1a", 1);
-	memcpy(id666->tagVersion, "\x1e", 1);
-	*(word *)id666->pc = *(word *)&spcdrvhead->codeStart;
-	/* DSPレジスタ情報、DIR情報がないと黒猫SPCの表示がヘンになる */
-	spcBuffer[0x1005d] = spcdrvhead->dir[1];
-
-	/* SPCコアデータを、SPCバッファにコピーします */
-	memcpy(&spcBuffer[0x100 + *(word *)&spcdrvhead->codeStart], &spcCore[sizeof(stSuperCHead)], spccodesize);
-
-	/* BRR、およびシーケンスを書き込むための準備 */
-	spcWritePtr = *(word *)&spcdrvhead->codeStart + spccodesize;
-
-	/* BRRデータの読み出し */
-	blread = brrList;
-	while(blread != NULL)
-	{
-		int brrsize;
-		word brrHead;
-
-		brrFile = fopen(blread->fname, "rb");
-		if(brrFile == NULL)
-		{
-			puterror("Make SPC: BRR file read error (%s).", blread->fname);
-			deleteBrrListData(brrList);
-			mmlclose(&mml);
-			binfree(&binary);
-			free(spcCore);
-			return -1;
-		}
-
-		brrsize = fsize(brrFile);
-
-		/* ファイルサイズ0 = ダミーファイルなので、処理とばす */
-		if( 0 == brrsize )
-		{
-			fclose(brrFile);
-			continue;
-		}
-
-		if( brrsize < 11 || (0 != ((brrsize -2) % 9)) )
-		{
-			puterror("Make SPC: BRR file size error (%s).", blread->fname);
-			deleteBrrListData(brrList);
-			mmlclose(&mml);
-			binfree(&binary);
-			free(spcCore);
-			fclose(brrFile);
-			return -1;
-		}
-
-		/* DIRテーブル情報の書き出し */
-		fread(&brrHead, sizeof(word), 1, brrFile);
-		brrHead += spcWritePtr;
-		printf("BRR %s : 0x%x bytes\n", blread->fname, brrsize-2);
-		printf("    MD5: ");
-		{ int i; for(i=0; i<16; i++) { printf("%02x", blread->md5digest[i]); } }
-		printf("\n    Start: 0x%04x / Loop: 0x%04x\n", spcWritePtr, brrHead);
-		*(word*)&spcBuffer[0x100 +  *(word*)spcdrvhead->dir + (blread->brrInx*4)] = spcWritePtr;
-		*(word*)&spcBuffer[0x100 +  *(word*)spcdrvhead->dir + (blread->brrInx*4) +2] = brrHead;
-
-		/* SPCバッファに追加 */
-		while(0 != (readLen = fread(brrBuffer, sizeof(byte), BRR_BUF, brrFile)))
-		{
-			memcpy(&spcBuffer[spcWritePtr+0x100], brrBuffer, readLen);
-			spcWritePtr += readLen;
-		}
-
-		fclose(brrFile);
-
-		blread = blread->next;
-	}
-
-	/* シーケンスデータをコピーする */
-	printf("SEQ 0x%x bytes / Start: 0x%04x\n", binary.dataInx, spcWritePtr);
-	*(word *)&spcBuffer[0x100 + *(word*)&spcdrvhead->locTable] = spcWritePtr;
-	memcpy(&spcBuffer[0x100 + spcWritePtr], binary.data, binary.dataInx);
-
-	/* binaryデータを書き出します */
+	/* SPCデータを書き出します */
 	/* fwrite(binary.data, sizeof(byte), binary.dataInx, outf); */
 	fwrite(spcBuffer, sizeof(byte), 0x10100, outf);
 	fclose(outf);
@@ -484,7 +318,7 @@ int main(const int argc, const char** argv)
 	deleteBrrListData(brrList);
 	mmlclose(&mml);
 	binfree(&binary);
-	free(spcCore);
+	freecore(&spcCore);
 	putdebug("########## COMPILE SUCCESS ##########");
 
 	getTime(&endTime);

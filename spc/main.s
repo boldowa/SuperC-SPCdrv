@@ -13,13 +13,18 @@
 .include "dspreg.tab"
 
 .bank 2 slot 2
-.orga __CODE_START__ - 19
-	.db	"DIR", $00
+.orga __CODE_START__ - 34
+	.db	"VER "
+	.db	$00, $01
+	.db	"DIR "
 	.dw	DirTbl
-	.db	"TBL", $00
+	.db	"ESA "
+	.dw	ESALoc
+	.db	"TBL "
 	.dw	TrackLocation
-	.db	"CODE", $00
+	.db	"LOC "
 	.dw	__CODE_START__
+	.db	"DATA"
 
 .incdir  ""
 .bank 3 slot 3
@@ -183,7 +188,9 @@ TAB_DSP_INIT:
 	.db   DSP_NON,     0
 	.db   DSP_DIR,   (DirTbl>>8)
 	.db   DSP_EDL      0
-	.db   DSP_ESA    ESA
+	.db   DSP_ESA
+ESALoc:
+	.db              ESA
 
 	.db   $ff ; termination code
 .ends

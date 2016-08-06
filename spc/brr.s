@@ -55,37 +55,42 @@ BrrData:
 .section "SPECIALWAVE" free
 SpecialWavFunc:
 	mov	a, specialWavPtr
-	mov	x, a
+	lsr	a
++	mov	x, a
 	mov	a, !SPWAV0+10+x
-	eor	a, #$ff
-	mov	!SPWAV0+10+x, a
-;	mov	a, !SPWAV1+10+x
-;	eor	a, #$ff
-;	mov	!SPWAV1+10+x, a
+	bcc	+
+	eor	a, #$0f
+	bra	++
++	eor	a, #$f0
+++	mov	!SPWAV0+10+x, a
 	mov	a, specialWavPtr
 	inc	a
-	cmp	a, #8
+	cmp	a, #16
 	bne	+
-	inc	a
-+	cmp	a, #17
-	bne	+
+	mov	a, #18
+	bra	++
++	cmp	a, #34
+	bne	++
 	mov	a, #0
-+	mov	specialWavPtr, a
+++	mov	specialWavPtr, a
 	ret
-
 SPWAV0:
 	.db	$02, $00, $00, $00, $00, $00, $00, $00, $00
 	.db	$b2, $77, $77, $77, $77, $77, $77, $77, $77
 	.db	$b3, $99, $99, $99, $99, $99, $99, $99, $99
 
 /*
-   ; 出力元波形を違うものにすれば面白いおとになるかな？と思ったけど
+   ; 出力元波形を違うものにすれば面白い音になるかな？と思ったけど
    ; SPWAV0と大差なかったので、コメントアウト
-SPWAV1:
+SPWAV0:
 	.db	$02, $00, $00, $00, $00, $00, $00, $00, $00
 	.db	$b2, $00, $11, $22, $33, $44, $55, $66, $77
 	.db	$b3, $88, $99, $aa, $bb, $cc, $dd, $ee, $ff
-SPWAV2:
+*/
+
+/*
+   ; これはある意味面白い音だけど、あまり有用じゃなかった
+SPWAV0:
 	.db	$02, $00, $00, $00, $00, $00, $00, $00, $00
 	.db	$c2, $01, $23, $45, $67, $76, $54, $32, $10
 	.db	$c3, $fe, $dc, $ba, $98, $89, $ab, $cd, $ef

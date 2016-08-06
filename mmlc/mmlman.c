@@ -32,7 +32,6 @@ int fsize(FILE *fp)
  */
 bool mmlopen(MmlMan* mml, char* fname)
 {
-	int bufctr;
 	if(mml == NULL)
 	{
 		/* NULLポインタが渡された場合は、動的メモリ確保を行います */
@@ -69,18 +68,23 @@ bool mmlopen(MmlMan* mml, char* fname)
 	mml->macroTail = NULL;
 	mml->macroExecRoot = NULL;
 	mml->macroExecCur = NULL;
+	mml->maxEDL = 0;
 
 	mml->line = 0;
 	mml->column = 0;
+
+	memset(mml->spcTitle, '\0', 32);
+	memset(mml->spcGame, '\0', 32);
+	memset(mml->spcComposer, '\0', 32);
+	memset(mml->spcDumper, '\0', 32);
+	memset(mml->spcComment, '\0', 32);
 
 	/* ファイルパスを取得します */
 	strcpy(mml->fname, fname);
 	getFileDir(mml->fdir, fname);
 
-	for(bufctr = 0; bufctr < MML_BUFFER_SIZE ; bufctr++)
-	{
-		mml->readbuff[bufctr] = '\0';
-	}
+	/* 読み込みバッファをクリアします */
+	memset(mml->readbuff, '\0', MML_BUFFER_SIZE);
 
 	/* 読み込みファイルサイズが0バイトのときは、ファイル末端フラグを立てます */
 	if(fsize(mml->fp) == 0)
