@@ -273,8 +273,8 @@ stBrrListData* addBrrListData(stBrrListData* bList, char *fname, int *brrInx, by
 		return bList;
 	}
 
-	/* 同一BRRデータかチェックする */
-	if(0 == strcmp(bList->fname, fname) || (0 == memcmp(bList->fname, md5, 16)) )
+	/* 同一のBRRデータかチェックする */
+	if(0 == memcmp(bList->md5digest, md5, 16))
 	{
 		return bList;
 	}

@@ -262,8 +262,8 @@ bool makeSPC(byte* spc, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData
 		}
 		if( brrsize < 11 || (0 != ((brrsize -2) % 9)) )
 		{
-			puterror("MakeSPC: BRR file size error (%s).", blread->fname);
-			return -1;
+			puterror("makeSPC: BRR file size error (%s).", blread->fname);
+			return false;
 		}
 
 		/* BRRループヘッダ読み出し */
