@@ -49,7 +49,7 @@ endif
 
 #LDFLAGS	= -Wl,--gc-sections -Wl,--no-define-common -Wl,--discard-all
 
-OFILES	 = mmlc.o compile.o mmlman.o binaryman.o errorman.o timefunc.o
+OFILES	 = mmlc.o compile.o mmlman.o binaryman.o errorman.o timefunc.o pathfunc.o
 OFILES	+= md5.o
 PRECOMPILE_HEADER = gstdafx.h
 

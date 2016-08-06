@@ -14,6 +14,10 @@ void getFileDir(char* dirname, const char* filename)
 	char* search;
 #ifdef _WIN32
 	search = strrchr(filename, '\\');
+	if(NULL == search)
+	{
+		search = strrchr(filename, '/');
+	}
 #else
 	search = strrchr(filename, '/');
 #endif

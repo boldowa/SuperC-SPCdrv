@@ -53,9 +53,9 @@ CmdLengthTable:
 	.db	1	; CmdPortamentoOn
 	.db	1	; CmdPortamentoOff
 	.db	4	; CmdPitchModulation
-	.db	2	; CmdPitchModulationOff
+	.db	1	; CmdPitchModulationOff
 	.db	4	; CmdTremolo
-	.db	2	; CmdTremoloOff
+	.db	1	; CmdTremoloOff
 	.db	4	; CmdSubroutine
 	.db	1	; CmdSubroutineReturn
 	.db	1	; CmdSubroutineBreak

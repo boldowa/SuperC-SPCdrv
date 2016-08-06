@@ -451,7 +451,10 @@ int main(const int argc, const char** argv)
 		/* DIRテーブル情報の書き出し */
 		fread(&brrHead, sizeof(word), 1, brrFile);
 		brrHead += spcWritePtr;
-		printf("BRR %s : 0x%x bytes @0x%x\n", blread->fname, brrsize-2, spcWritePtr);
+		printf("BRR %s : 0x%x bytes\n", blread->fname, brrsize-2);
+		printf("    MD5: ");
+		{ int i; for(i=0; i<16; i++) { printf("%02x", blread->md5digest[i]); } }
+		printf("\n    Start: 0x%04x / Loop: 0x%04x\n", spcWritePtr, brrHead);
 		*(word*)&spcBuffer[0x100 +  *(word*)spcdrvhead->dir + (blread->brrInx*4)] = spcWritePtr;
 		*(word*)&spcBuffer[0x100 +  *(word*)spcdrvhead->dir + (blread->brrInx*4) +2] = brrHead;
 
@@ -468,7 +471,7 @@ int main(const int argc, const char** argv)
 	}
 
 	/* シーケンスデータをコピーする */
-	printf("SEQ : 0x%x\n", spcWritePtr);
+	printf("SEQ 0x%x bytes / Start: 0x%04x\n", binary.dataInx, spcWritePtr);
 	*(word *)&spcBuffer[0x100 + *(word*)&spcdrvhead->locTable] = spcWritePtr;
 	memcpy(&spcBuffer[0x100 + spcWritePtr], binary.data, binary.dataInx);
 
@@ -485,7 +488,7 @@ int main(const int argc, const char** argv)
 	putdebug("########## COMPILE SUCCESS ##########");
 
 	getTime(&endTime);
-	printf("Complete. Compiled in %.3f seconds.\n", getTimeToPass(&startTime, &endTime));
+	printf("\nComplete. Compiled in %.3f seconds.\n", getTimeToPass(&startTime, &endTime));
 
 	return 0;
 }

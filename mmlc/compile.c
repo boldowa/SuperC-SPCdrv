@@ -551,12 +551,13 @@ int getNumbers(MmlMan* mml, int *Numbers, ErrorNode* compileErrList)
 
 /**
  * 音の長さの計算
- *   ticks    : 音の長さ格納用変数へのポインタ
- *   timebase : Timebase値
- *   mml      : mml構造体
- *   return   : 音の長さの取得が正常に完了したか否か
+ *   ticks       : 音の長さ格納用変数へのポインタ
+ *   defaultTick : 音の長さ表記省略時のデフォルト長
+ *   timebase    : Timebase値
+ *   mml         : mml構造体
+ *   return      : 音の長さの取得が正常に完了したか否か
  */
-bool calcSteps(int* ticks, int timebase, MmlMan* mml, ErrorNode* compileErrList)
+bool calcSteps(int* ticks, int defaultTicks, int timebase, MmlMan* mml, ErrorNode* compileErrList)
 {
 	int tmpNums[TMP_BUFFER_SIZE];
 	int getNums;
@@ -571,8 +572,13 @@ bool calcSteps(int* ticks, int timebase, MmlMan* mml, ErrorNode* compileErrList)
 	getNums = getNumbers(mml, tmpNums, compileErr);
 	if(0 == getNums)
 	{
+		if(0 < defaultTicks)
+		{
+			*ticks = defaultTicks;
+			return true;
+		}
 		/* 前回stepを取得できていない場合は、エラー */
-		if(255 < *ticks)
+		if(0 > *ticks)
 		{
 			return false;
 		}
@@ -580,6 +586,7 @@ bool calcSteps(int* ticks, int timebase, MmlMan* mml, ErrorNode* compileErrList)
 	}
 	if(1 < getNums)
 	{
+		/* 引数が多い (c1,1)場合、エラー */
 		return false;
 	}
 
@@ -713,6 +720,11 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 	bool isSpecifyedTimebase = false;
 
 	/**
+	 * 音長省略時のデフォルト音長
+	 */
+	int defaultTicks = -1;
+
+	/**
 	 * 現在のループ深度
 	 */
 	int loopDepth = -1;
@@ -761,7 +773,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 	/**
 	 * ドラムトーンテーブル
 	 */
-	Track drumTable;
+	byte drumTable[DRUMTABLE_LEN*DRUMTABLE_NUMS];
+	int drumTableCtr = 0;
 
 #if 0
 	/* Stack over test */
@@ -800,7 +813,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 
 	/* 音色テーブルの初期化 */
 	memset(&toneTable, 0, sizeof(Track));
-	memset(&drumTable, 0, sizeof(Track));
+	memset(drumTable, 0, DRUMTABLE_LEN*DRUMTABLE_NUMS);
 
 	while(mml->iseof == false)
 	{
@@ -877,7 +890,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				sprintf(compileErr->message, "Length prefix");
 				addError(compileErr, compileErrList);
 
-				if(false == calcSteps(&tracks.ticks[tracks.curTrack], timebase, mml, compileErr))
+				if(false == calcSteps(&defaultTicks, 0, timebase, mml, compileErr))
 				{
 					newError(mml, compileErr, compileErrList);
 					compileErr->type = SyntaxError;
@@ -886,6 +899,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					addError(compileErr, compileErrList);
 					continue;
 				}
+				/*
 				if(0x60 < tracks.ticks[tracks.curTrack])
 				{
 					newError(mml, compileErr, compileErrList);
@@ -895,6 +909,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					addError(compileErr, compileErrList);
 					continue;
 				}
+				*/
 				break;
 
 			/******************************************/
@@ -985,8 +1000,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					}
 
 					/* Step算出 */
-					tracks.lastticks[tracks.curTrack] = tracks.ticks[tracks.curTrack];
-					if(false == calcSteps(&tracks.ticks[tracks.curTrack], timebase, mml, compileErr))
+					if(false == calcSteps(&tracks.ticks[tracks.curTrack], defaultTicks, timebase, mml, compileErr))
 					{
 						newError(mml, compileErr, compileErrList);
 						compileErr->type = SyntaxError;
@@ -1009,6 +1023,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					{
 						putSeq(&tracks, tracks.ticks[tracks.curTrack], loopDepth, mml, compileErr);
 					}
+					tracks.lastticks[tracks.curTrack] = tracks.ticks[tracks.curTrack];
 
 					/* ゲートタイム/ベロシティ挿入 */
 					if((tracks.gatetime[tracks.curTrack] != tracks.lastGatetime[tracks.curTrack]) || (tracks.velocity[tracks.curTrack] != tracks.lastVelocity[tracks.curTrack]))
@@ -1024,14 +1039,23 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					tracks.lastVelocity[tracks.curTrack] = tracks.velocity[tracks.curTrack];
 
 					/* 長い音の場合にタイを追加 */
-					if(remainTicks != 0)
+					while(remainTicks != 0)
 					{
-						tracks.lastticks[tracks.curTrack] = tracks.ticks[tracks.curTrack];
-						tracks.ticks[tracks.curTrack] = remainTicks;
+						if(0x60 < remainTicks)
+						{
+							remainTicks -= 0x60;
+							tracks.ticks[tracks.curTrack] = 0x60;
+						}
+						else
+						{
+							tracks.ticks[tracks.curTrack] = remainTicks;
+							remainTicks = 0;
+						}
 						if(tracks.lastticks[tracks.curTrack] != tracks.ticks[tracks.curTrack])
 						{
 							putSeq(&tracks, tracks.ticks[tracks.curTrack], loopDepth, mml, compileErr);
 						}
+						tracks.lastticks[tracks.curTrack] = tracks.ticks[tracks.curTrack];
 						putSeq(&tracks, TIE, loopDepth, mml, compileErr);
 					}
 				}
@@ -1042,6 +1066,9 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 			/* コントロール                           */
 			/******************************************/
 			case '#':
+			{
+				bool isDrum = false;
+
 				if(false == isFirstChar(mml))
 				{
 					newError(mml, compileErr, compileErrList);
@@ -1160,7 +1187,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					sprintf(compileErr->message, "Octave swap => '%c' is Up", octaveSwap ? '<' : '>');
 					addError(compileErr, compileErrList);
 				} /* endif swap<> */
-				else if(mmlCmpStr(mml, "tone") == true)
+				else if( (true == mmlCmpStr(mml, "tone")) || (true == (isDrum = mmlCmpStr(mml, "drum"))) )
 				{
 					int validNums = 9;
 					int nums = 0;
@@ -1171,6 +1198,21 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					int localBrrInx = 0;
 					stBrrListData *localBlist = NULL;
 					byte digest[16];
+
+					if(true == isDrum)
+					{
+						validNums += 2;
+
+						if( (DRUMTABLE_LEN*DRUMTABLE_NUMS) <= drumTableCtr)
+						{
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_ERROR;
+							sprintf(compileErr->message, "TOO MANY DRUM DEFINE.");
+							addError(compileErr, compileErrList);
+							continue;
+						}
+					}
 
 					skipspaces(mml);
 					readValue = mmlgetch(mml);
@@ -1208,7 +1250,14 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							newError(mml, compileErr, compileErrList);
 							compileErr->type = SyntaxError;
 							compileErr->level = ERR_ERROR;
-							sprintf(compileErr->message, "Invalid tone define.");
+							if(true == isDrum)
+							{
+								sprintf(compileErr->message, "Invalid drum define.");
+							}
+							else
+							{
+								sprintf(compileErr->message, "Invalid tone define.");
+							}
 							addError(compileErr, compileErrList);
 							continue;
 						}
@@ -1260,7 +1309,14 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						newError(mml, compileErr, compileErrList);
 						compileErr->type = SyntaxError;
 						compileErr->level = ERR_ERROR;
-						sprintf(compileErr->message, "Invalid tone define(too few arguments).");
+						if(true == isDrum)
+						{
+							sprintf(compileErr->message, "Invalid drum define(too few arguments).");
+						}
+						else
+						{
+							sprintf(compileErr->message, "Invalid tone define(too few arguments).");
+						}
 						addError(compileErr, compileErrList);
 						continue;
 					}
@@ -1283,7 +1339,14 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						newError(mml, compileErr, compileErrList);
 						compileErr->type = SyntaxError;
 						compileErr->level = ERR_ERROR;
-						sprintf(compileErr->message, "Invalid tone define(Invalid arguments).");
+						if(isDrum)
+						{
+							sprintf(compileErr->message, "Invalid drum define(Invalid arguments).");
+						}
+						else
+						{
+							sprintf(compileErr->message, "Invalid tone define(Invalid arguments).");
+						}
 						addError(compileErr, compileErrList);
 						continue;
 					}
@@ -1311,12 +1374,25 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						tmp = (arg[7] & 0x1f);
 						rr |= tmp;
 
-						toneTable.data[toneTable.ptr++] = localBrrInx;	/* 波形番号 */
-						toneTable.data[toneTable.ptr++] = arg[0];	/* ピッチ倍率 */
-						toneTable.data[toneTable.ptr++] = arg[1];	/* デチューン */
-						toneTable.data[toneTable.ptr++] = adr;		/* ADR */
-						toneTable.data[toneTable.ptr++] = sr;		/* SR */
-						toneTable.data[toneTable.ptr++] = rr;		/* RR */
+						if(false == isDrum)
+						{
+							toneTable.data[toneTable.ptr++] = localBrrInx;	/* 波形番号 */
+							toneTable.data[toneTable.ptr++] = arg[0];	/* ピッチ倍率 */
+							toneTable.data[toneTable.ptr++] = arg[1];	/* デチューン */
+							toneTable.data[toneTable.ptr++] = adr;		/* ADR */
+							toneTable.data[toneTable.ptr++] = sr;		/* SR */
+							toneTable.data[toneTable.ptr++] = rr;		/* RR */
+							break;
+						}
+
+						drumTable[drumTableCtr++] = localBrrInx;	/* 波形番号 */
+						drumTable[drumTableCtr++] = arg[0];		/* ピッチ倍率 */
+						drumTable[drumTableCtr++] = arg[1];		/* デチューン */
+						drumTable[drumTableCtr++] = adr;		/* ADR */
+						drumTable[drumTableCtr++] = sr;			/* SR */
+						drumTable[drumTableCtr++] = rr;			/* RR */
+						drumTable[drumTableCtr++] = arg[8];		/* パンポット */
+						drumTable[drumTableCtr++] = arg[9];		/* 音階値 */
 						break;
 					}
 
@@ -1367,19 +1443,27 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 								break;
 						}
 
-						toneTable.data[toneTable.ptr++] = localBrrInx;	/* 波形番号 */
-						toneTable.data[toneTable.ptr++] = arg[0];	/* ピッチ倍率 */
-						toneTable.data[toneTable.ptr++] = arg[1];	/* デチューン */
-						toneTable.data[toneTable.ptr++] = 0;		/* ADR */
-						toneTable.data[toneTable.ptr++] = gain1;	/* GAIN1 */
-						toneTable.data[toneTable.ptr++] = gain2;	/* GAIN2 */
+						if(false == isDrum)
+						{
+							toneTable.data[toneTable.ptr++] = localBrrInx;	/* 波形番号 */
+							toneTable.data[toneTable.ptr++] = arg[0];	/* ピッチ倍率 */
+							toneTable.data[toneTable.ptr++] = arg[1];	/* デチューン */
+							toneTable.data[toneTable.ptr++] = 0;		/* ADR */
+							toneTable.data[toneTable.ptr++] = gain1;	/* GAIN1 */
+							toneTable.data[toneTable.ptr++] = gain2;	/* GAIN2 */
+							break;
+						}
+						drumTable[drumTableCtr++] = localBrrInx;	/* 波形番号 */
+						drumTable[drumTableCtr++] = arg[0];		/* ピッチ倍率 */
+						drumTable[drumTableCtr++] = arg[1];		/* デチューン */
+						drumTable[drumTableCtr++] = 0;			/* ADR */
+						drumTable[drumTableCtr++] = gain1;		/* GAIN1 */
+						drumTable[drumTableCtr++] = gain2;		/* GAIN2 */
+						drumTable[drumTableCtr++] = arg[8];		/* パンポット */
+						drumTable[drumTableCtr++] = arg[9];		/* 音階値 */
+						break;
 					}
-				} /* endif tone */
-				else if(mmlCmpStr(mml, "drum") == true)
-				{
-					skipspaces(mml);
-					/* TODO: 実装 */
-				} /* endif drum */
+				} /* endif tone / drum */
 				else if(mmlCmpStr(mml, "macro") == true)
 				{
 					newError(mml, compileErr, compileErrList);
@@ -1408,6 +1492,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					continue;
 				}
 				break;
+			}
 
 			/******************************************/
 			/* サブコマンド定義                       */
@@ -2345,7 +2430,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					putSeq(&tracks, (latestSub->addr>>8), loopDepth, mml, compileErr);
 
 					/* サブルーチン呼び元記憶　*/
-					trk = (0>=loopDepth ? tracks.curTrack : TRACKS);
+					trk = (0>loopDepth ? tracks.curTrack : TRACKS);
 					if(false == addSubroutineListData(&subs, latestSub->depth, trk, tracks.track[trk].ptr-4))
 					{
 						/* メモリ確保エラー */
@@ -2469,7 +2554,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 		}
 
 		/* 波形定義テーブルの書き出し */
-		bindataadd(bin, (const byte*)drumTable.data, DRUMTABLE_LEN*7);
+		bindataadd(bin, drumTable, DRUMTABLE_LEN*DRUMTABLE_NUMS);
 		bindataadd(bin, (const byte*)toneTable.data, toneTable.ptr);
 
 		/* 変換データのまとめこみ */
