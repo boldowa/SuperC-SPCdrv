@@ -45,7 +45,7 @@ _ScaleJoin:
 -	inc	x
 	lsr	lPitchH
 	ror	a
-+	cmp	x, #(OCTAVE_RANGE - 1)
++	cmp	x, #OCTAVE_RANGE
 	bmi	-
 	mov	y, lPitchH
 	ret
