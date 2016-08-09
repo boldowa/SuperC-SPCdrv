@@ -29,6 +29,7 @@ MusicProcess:
 	mov	x, #0
 
 _TrackLoop
+	call	PhaseIncrease
 	mov	a, track.stepLeft+x
 	beq	_SeqAna
 	dec	a
@@ -114,6 +115,7 @@ _RetChAlloc:
 	; --- ONのままにしておくと後に影響が出るパラメータ類のリセット
 	mov	a, #0
 	mov	track.pitchBendSpan+x, a	; 切っておかないと、次の音もスライドする
+	mov	track.pitchBendPhase+x, a
 	ret
 	; --- トラック解析終了処理 --- ここまで
 
@@ -216,6 +218,15 @@ _NormalNote:
 +	mov	buf_noise, a
 	pop	x
 
+	; --- lfo reset
+	mov	a, track.modulationDelay+y
+	mov	track.modulationWaits+y, a
+	mov	a, track.tremoloDelay+y
+	mov	track.tremoloWaits+y, a
+	mov	a, #0
+	mov	a, track.modulationPhase+x
+	mov	a, track.tremoloPhase+x
+
 _Alloc:
 	mov	buf_chData.allocTrack+x, y
 	mov	a, !track.brrInx+y
@@ -228,13 +239,6 @@ _Alloc:
 	bra	++
 +	mov	a, !track.sr+y
 ++	mov	buf_chData.sr+x, a
-	mov	a, track.modulationDelay+y
-	mov	track.modulationWaits+y, a
-	mov	a, track.tremoloDelay+y
-	mov	track.tremoloWaits+y, a
-	mov	a, #0
-	mov	a, track.modulationPhase+x
-	mov	a, track.tremoloPhase+x
 
 _AllocFailed:
 	mov	a, y
@@ -350,6 +354,72 @@ SetRelativePointer:
 	movw	lSeqPointer, ya
 	ret
 
+/**************************************************/
+/* フェーズ処理(LFO等向けの処理)                  */
+/**************************************************/
+PhaseIncrease:
+	; Pitchbend
+	mov	a, track.pitchBendSpan+x
+	beq	_Modulation
+	mov	a, track.pitchBendDelay+x
+	beq	_PitchbendPhase
+	dec	a
+	mov	track.pitchBendDelay+x, a
+	bra	_Modulation
+_PitchbendPhase:
+	mov	a, track.pitchBendSpan+x
+	dec	a
+	mov	track.pitchBendSpan+x, a
+	mov	a, track.pitchBendDiff+x
+	bmi	_BendMinus
+	; ピッチベンド +方向
+	mov	a, track.pitchBendDelta+x
+	clrc
+	adc	a, track.pitchBendPhase+x
+	mov	track.pitchBendPhase+x, a
+	mov	a, track.curKey+x
+	adc	a, track.pitchBendKey+x
+	mov	track.curKey+x, a
+	bra	_Modulation
+_BendMinus:
+	mov	a, track.pitchBendPhase+x
+	setc
+	sbc	a, track.pitchBendDelta+x
+	mov	track.pitchBendPhase+x, a
+	mov	a, track.curKey+x
+	sbc	a, track.pitchBendKey+x
+	mov	track.curKey+x, a
+
+_Modulation:
+	mov	a, track.modulationDepth+x
+	beq	_Tremolo
+	mov	a, track.modulationWaits+x
+	beq	_ModulationPhase
+	dec	a
+	mov	track.modulationWaits+x, a
+	bra	_Tremolo
+_ModulationPhase:
+	mov	a, track.modulationRate+x
+	clrc
+	adc	a, track.modulationPhase+x
+	mov	track.modulationPhase+x, a
+
+_Tremolo:
+	mov	a, track.tremoloDepth+x
+	beq	_End
+	mov	a, track.tremoloWaits+x
+	beq	_TremoloPhase
+	dec	a
+	mov	track.tremoloWaits+x, a
+	bra	_End
+_TremoloPhase:
+	mov	a, track.tremoloRate+x
+	clrc
+	adc	a, track.tremoloPhase+x
+	mov	track.tremoloPhase+x, a
+_End:
+	ret
+
 ;--------------------------------------------------
 ; MusicProcess - LOOK AHEAD TIE PROCESS
 ;   Level       : 3 (Main Sub-Sub)
@@ -389,6 +459,8 @@ LookAheadTie:
 
 +	cmp	a, #SEQCMD_START
 	bmi	_NotTie
+	cmp	a, #CMD_PORTAM_OFF
+	beq	_NotTie			; 次コマンドがポルタメントOFFの場合、切る
 	cmp	a, #CMD_JUMP
 	beq	_lookJump
 	cmp	a, #CMD_SUBROUTINE
@@ -605,6 +677,7 @@ InitSequenceData:
 	mov	musicGlobalVolume, a
 	mov	musicTempo, #60
 	mov	eVolRatio, #0
+	mov	specialWavFreq, #SPECIAL_WAV_FREQ
 
 	; ミュート解除
 	mov	SPC_REGADDR, #DSP_FLG

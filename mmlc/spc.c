@@ -200,6 +200,7 @@ bool makeSPC(byte* spc, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData
 
 	/* ID666情報を生成します */
 	id666 = (stID666_Text*)spc;
+	memset(id666, 0, sizeof(stID666_Text));
 	memcpy(id666->headerInfo, "SNES-SPC700 Sound File Data v0.30", 33);
 	memcpy(id666->cutHeaderAndData, "\x1a\x1a", 2);
 	memcpy(id666->tagType, "\x1a", 1);
@@ -217,9 +218,6 @@ bool makeSPC(byte* spc, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData
 	memcpy(id666->composer, mml->spcComposer, 32);
 	memcpy(id666->dumper, mml->spcDumper, 32);
 	memcpy(id666->comment, mml->spcComment, 32);
-
-	/* DSPレジスタ情報をセットします */
-	spc[0x1015d] = (core->dir >> 8);
 
 	/* SPCコアデータをセットします */
 	memcpy(&spc[0x100 + core->location], core->data, core->size);
@@ -298,6 +296,13 @@ bool makeSPC(byte* spc, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData
 	}
 	*(word*)&spc[0x100 + core->seqBasePoint] = aramWritePtr;
 	memcpy(&spc[0x100 + aramWritePtr], seq->data, seq->dataInx);
+
+	/* DSPレジスタ情報をセットします */
+	spc[0x1014c] = 0;			/* KON */
+	spc[0x1015c] = 0xff;			/* KOF */
+	spc[0x1015d] = (core->dir >> 8);	/* DIR */
+	spc[0x1016d] = (esa >> 8);		/* ESA */
+	spc[0x1017d] = 0;			/* EDL */
 
 	freeSize = 0x10000 - aramWritePtr;
 	printf("Make SPC success.\n");

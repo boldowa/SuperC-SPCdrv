@@ -219,7 +219,7 @@ int main(const int argc, const char** argv)
 	/* 初期化 */
 	memset(&mml, 0, sizeof(MmlMan));
 	memset(&binary, 0, sizeof(BinMan));
-	memset(spcBuffer, 0, 0x10200);
+	memset(spcBuffer, 0xff, 0x10200);
 
 	/* オプション展開 */
 	if(!parseOption(argc, argv))

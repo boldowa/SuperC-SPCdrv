@@ -24,9 +24,9 @@ SetInstrumentA:
 	cmp	a, #$e0		; e0 ~ ff : noise
 	bcs	_Noise
 
-	cmp	a, #$40
+	cmp	a, #EXTONE_START
 	bmi	+
-	sbc	a, #$40
+	sbc	a, #EXTONE_START
 	push	a
 	movw	ya, exToneTablePtr
 	movw	toneTblPtr, ya
@@ -42,6 +42,10 @@ GetToneCfg:
 	mul	ya
 	addw	ya, toneTblPtr
 	movw	toneTblPtr, ya
+	;--- clear noise flag
+	mov	a, #($ff ~ TRKFLG_NOISE)
+	and	a, track.bitFlags+x
+	mov	track.bitFlags+x, a
 	;--- read tone settings
 	mov	y, #0
 	mov	a, [toneTblPtr]+y

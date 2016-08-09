@@ -67,7 +67,7 @@ __	mov	SPC_REGADDR, y
 	mov	SPC_REGDATA, a
 	; 音の鳴っていない、且つKEYONしないCHを開放する
 	; (※ 重くなる、もしくは割り当て不安定なら、要コメントアウト)
-	call    DspReleaseMuteChannel
+	;call    DspReleaseMuteChannel
 	; キーオフ(キーオンする場所は対象外)
 	mov	a, buf_keyon
 	eor	a, #$ff
@@ -104,8 +104,8 @@ __	mov	SPC_REGADDR, y
 	lVolumeH	db
 	lVolumeL	db
 	lpan		db
-	llvol		db
 	lrvol		db
+	llvol		db
 .ende
 
 DspPostProcess:
@@ -120,42 +120,6 @@ _ChannelLoop:
 	push	x
 	mov	x, a
 
-	/****************************************/
-	/* ピッチベンド処理１                   */
-	/****************************************/
-	mov	a, track.pitchBendSpan+x
-	beq	_CalcPitch
-	mov	a, track.pitchBendDelay+x
-	beq	_PitchBend
-	dec	a
-	mov	track.pitchBendDelay+x, a
-	bra	_CalcPitch
-_PitchBend:
-	mov	a, track.pitchBendSpan+x
-	dec	a
-	mov	track.pitchBendSpan+x, a
-	mov	a, track.pitchBendDiff+x
-	bmi	_Bend2
-	mov	a, track.pitchBendDelta+x
-	clrc
-	adc	a, track.pitchBendPhase+x
-	mov	track.pitchBendPhase+x, a
-	mov	lTemp, a
-	mov	a, track.curKey+x
-	adc	a, track.pitchBendKey+x
-	mov	track.curKey+x, a
-	bra	_BendJoin
-_Bend2:
-	mov	a, track.pitchBendPhase+x
-	setc
-	sbc	a, track.pitchBendDelta+x
-	mov	track.pitchBendPhase+x, a
-	mov	lTemp, a
-	mov	a, track.curKey+x
-	sbc	a, track.pitchBendKey+x
-	mov	track.curKey+x, a
-
-_BendJoin:
 	/******************************/
 	/* Pitchを計算する            */
 	/******************************/
@@ -171,14 +135,16 @@ _CalcPitch
 	pop	x
 
 	/****************************************/
-	/* ピッチベンド処理２                   */
+	/* ピッチベンド処理                     */
 	/****************************************/
 	mov	a, track.pitchBendSpan+x
 	beq	_Detune
+	mov	a, track.pitchBendDelay+x
+	bne	_Detune
 	mov	$04, lPitchDif+1
 	mov	a, lPitchDif
 	mov	y, a
-	mov	a, lTemp
+	mov	a, track.pitchBendPhase+x
 	call	mul16_8
 	addw	ya, lPitch
 	movw	lPitch, ya
@@ -206,18 +172,12 @@ _Detune:
 	/****************************************/
 	/* Vol LFO                              */
 	/****************************************/
-+	mov	a, track.tremoloDepth+x
+	mov	a, track.tremoloDepth+x
 	beq	_CalcVol1
 	mov	a, track.tremoloWaits+x
-	beq	_Tremolo
-	dec	a
-	mov	track.tremoloWaits+x, a
-	bra	_CalcVol
+	bne	_CalcVol1
 _Tremolo:
-	mov	a, track.tremoloRate+x
-	clrc
-	adc	a, track.tremoloPhase+x
-	mov	track.tremoloPhase+x, a
+	mov	a, track.tremoloPhase+x
 	mov	y, a
 	mov	a, track.tremoloDepth+x
 	mul	ya
@@ -244,8 +204,8 @@ _CalcVol:
 	bcc	_Panpot
 	mov	a, lTemp
 	lsr	a
-	mov	llvol, a
 	mov	lrvol, a
+	mov	llvol, a
 	bra	_VolLevel
 
 _Panpot:
@@ -263,25 +223,14 @@ _Panpot:
 	mov	y, lTemp
 	mul	ya
 	mov	a, y
-++	mov	lrvol, a
+++	mov	llvol, a
 	mov	a, lTemp
 	setc
-	sbc	a, lrvol
-	mov	llvol, a
+	sbc	a, llvol
+	mov	lrvol, a
 
 _VolLevel:
-	; --- left
-	mov	y, a
-	inc	y
-	mov	a, track.volumeH+x
-	mul	ya
-	inc	y
-	mov	a, musicGlobalVolume
-	mul	ya
-	mov	llvol, y
-
 	; --- right
-	mov	a, lrvol
 	mov	y, a
 	inc	y
 	mov	a, track.volumeH+x
@@ -291,22 +240,27 @@ _VolLevel:
 	mul	ya
 	mov	lrvol, y
 
+	; --- left
+	mov	a, llvol
+	mov	y, a
+	inc	y
+	mov	a, track.volumeH+x
+	mul	ya
+	inc	y
+	mov	a, musicGlobalVolume
+	mul	ya
+	mov	llvol, y
+
 	/******************************/
 	/* Pitchモジュレーション      */
 	/******************************/
 	mov	a, track.modulationDepth+x
 	beq	_NoModuration
 	mov	a, track.modulationWaits+x
-	beq	_Modulation
-	dec	a
-	mov	track.modulationWaits+x, a
-	bra	_NoModuration
+	bne	_NoModuration
 
 _Modulation:
-	mov	a, track.modulationRate+x
-	clrc
-	adc	a, track.modulationPhase+x
-	mov	track.modulationPhase+x, a
+	mov	a, track.modulationPhase+x
 	mov	lTemp, a
 	mov	lTemp+1, a
 	and	a, #$c0
@@ -404,11 +358,13 @@ _BeforeChannelLoop:
 +	mov	SPC_REGADDR, #DSP_MVOLL
 	mov	y, SPC_REGDATA
 	mov	a, eVolRatio
-	and	a, #$7f
 	asl	a
-	mul	ya
+	bcc	+
+	eor	a, #$ff
+	inc	a
++	mul	ya
 	mov	a, y
-	bbc	eVolRatio.7, +
+	bcc	+
 	eor	a, #$ff
 	inc	a
 +	mov	buf_eVol, a
@@ -433,9 +389,12 @@ _BeforeChannelLoop:
 .undefine		lVolumeH
 .undefine		lVolumeL
 .undefine		lpan
-.undefine		llvol
 .undefine		lrvol
+.undefine		llvol
 
+.ends
+
+.section "CHRELEASE" free
 ;--------------------------------------------------
 ; DspReleaseMuteChannel - DSP REGISTER CONTROLL PROCESS
 ;   Level       : 2 (Main sub)

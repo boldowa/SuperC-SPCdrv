@@ -10,7 +10,9 @@
 ;------------------------------------------------
 ; SEQ OCTAVE RANGE
 ;------------------------------------------------
-.define OCTAVE_RANGE	7
+.define OCTAVE_MIN	0
+.define OCTAVE_MAX	6
+.define OCTAVE_RANGE	(OCTAVE_MAX - OCTAVE_MIN + 1)
 
 ;------------------------------------------------
 ; TIE and REST
@@ -23,6 +25,11 @@
 ;------------------------------------------------
 .define DRUM_NOTE	REST + 1
 .define DRUM_NOTE_NUMS	7
+
+;------------------------------------------------
+; TONE Settings
+;------------------------------------------------
+.define EXTONE_START	$40
 
 ;------------------------------------------------
 ; Command Start Point

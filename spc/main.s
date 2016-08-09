@@ -15,7 +15,7 @@
 .bank 2 slot 2
 .orga __CODE_START__ - 34
 	.db	"VER "
-	.db	$00, $01
+	.db	$00, $50
 	.db	"DIR "
 	.dw	DirTbl
 	.db	"ESA "
@@ -100,9 +100,6 @@ _EndInitDSP:
 	mov	sndTempoCounter, a	; | こうすることで、テンポが0以外なら
 	mov	musicTempoCounter, a	;/  初回のtick動作で必ず解析処理が実行されます
 
-; 特殊波形用の周波数値に初期値を入れます
-	mov	specialWavFreq, #SPECIAL_WAV_FREQ
-
 ; --- メインのループ処理です
 _mainLoop:
 	call	IOCommProcess		; SNES<-->APU通信処理
@@ -112,12 +109,10 @@ _mainLoop:
 	mov	taskCounter, a		; 処理を回す回数としてカウンタ値を保持します
 
 	mov1	c, rootSysFlags.0
-	bcc	+
+	bcc	+			; DSPの内容を更新する必要がある場合のみ、DSPへの書き込みをします
 
 	call	DspPreProcess		; 前処理
 					; キーオン等を行います
-
-;	call	DspReleaseMuteChannel	; 音の鳴っていないチャンネルをあらかじめ開放します
 
 +	clr1	rootSysFlags.0		; DSP更新が終わったので、フラグクリア
 	bra	_Sound			; 効果音処理を開始します
