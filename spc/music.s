@@ -63,9 +63,34 @@ _SeqAna:
 	mov	track.seqPointerH+x, a
 
 _Loop:
+	call	trackEffect
 	inc	x
 	cmp	x, #MUSICTRACKS
 	bne	_TrackLoop
+
+_GlobalVolumeFade:
+	mov	a, mgvolFadeSpan
+	beq	_TempoFade
+	mov	a, mgvolFadeDtL
+	clrc
+	adc	a, musicGlobalVolumeL
+	mov	musicGlobalVolumeL, a
+	mov	a, mgvolFadeDtH
+	adc	a, musicGlobalVolume
+	mov	musicGlobalVolume, a
+	dec	mgvolFadeSpan
+
+_TempoFade:
+	mov	a, tempoFadeSpan
+	beq	_EndRoutine
+	mov	a, tempoFadeDeltaL
+	clrc
+	adc	a, musicTempoLo
+	mov	musicTempoLo, a
+	mov	a, tempoFadeDeltaH
+	adc	a, musicTempo
+	mov	musicTempo, a
+	dec	tempoFadeSpan
 
 _EndRoutine:
 	ret
@@ -99,7 +124,6 @@ ReleaseChannel:
 	push	a
 	mov	a, #$ff			;\ 割り当て解除
 	mov	buf_chData.allocTrack+x, a	;/
-;	mov	buf_chData.srcn+x, a	; debug
 	pop	x
 	mov	a, !ChBitTable+x	;\  keyoff
 	push	a
@@ -224,8 +248,8 @@ _NormalNote:
 	mov	a, track.tremoloDelay+y
 	mov	track.tremoloWaits+y, a
 	mov	a, #0
-	mov	a, track.modulationPhase+x
-	mov	a, track.tremoloPhase+x
+	mov	track.modulationPhase+y, a
+	mov	track.tremoloPhase+y, a
 
 _Alloc:
 	mov	buf_chData.allocTrack+x, y
@@ -261,10 +285,10 @@ _JudgeTieRest:
 	beq	+
 	; --- Tieの為の先読み処理
 	call	LookAheadTie
-	ret
++	ret
 	; --- CH開放
-+	call	ReleaseChannel
-	ret
+;+	call	ReleaseChannel
+;	ret
 
 _JudgeDrum:
 	cmp	a, #SEQCMD_START
@@ -429,116 +453,147 @@ _End:
 ;                 次のNoteがTIEの場合に
 ;                 KEYOFF対象外にする
 ;--------------------------------------------------
+.enum $00
+	lLoopStartAdrL		dw
+	lLoopStartAdrH		dw
+	lLoopReturnAdrL		dw
+	lLoopReturnAdrH		dw
+	lLoopNumbers		dw
+	llntmp			db
+.ende
+
 TieNothingToDo:
 	ret
 LookAheadTie:
+	; --- シーケンスポインタを退避する
 	movw	ya, lSeqPointer
 	beq     TieNothingToDo		; NULLの場合、処理なし
-	movw	$00, ya
+	movw	$00, ya			; $00 に退避
+	mov	$03, #0			; 次Tieの長さ
+
+	; --- X(チャンネル番号)を退避する
 	push	x
 
 	; --- ループ先読みで変更する為
-	; --- ループ開始アドレスをバックアップ
-	push	x
+	; --- サブルーチン関連メモリをコピー
 	mov	a, x
 	asl	a
 	mov	x, a
-	mov	a, loopStartAdrH+$100+x
-	mov	$03, a
-	mov	a, loopStartAdrH+$101+x
-	mov	$04, a
-	pop	x
+	setp
+	mov	a, loopStartAdrL+x
+	mov	lLoopStartAdrL, a
+	mov	a, loopStartAdrL+1+x
+	mov	lLoopStartAdrL+1, a
+	mov	a, loopStartAdrH+x
+	mov	lLoopStartAdrH, a
+	mov	a, loopStartAdrH+1+x
+	mov	lLoopStartAdrH+1, a
+	mov	a, loopReturnAdrL+x
+	mov	lLoopReturnAdrL, a
+	mov	a, loopReturnAdrL+1+x
+	mov	lLoopReturnAdrL+1, a
+	mov	a, loopReturnAdrH+x
+	mov	lLoopReturnAdrH, a
+	mov	a, loopReturnAdrH+1+x
+	mov	lLoopReturnAdrH+1, a
+	mov	a, loopNumbers+x
+	mov	lLoopNumbers, a
+	mov	a, loopNumbers+1+x
+	mov	lLoopNumbers+1, a
+	clrp
+	bra	_laLoop
 
---	mov	y, #0
--	mov	a, [lSeqPointer]+y
-	bmi	+
-	inc	y
-	bra	-
-+	cmp	a, #TIE			; is tie?
+_SetNextSteps:
+	mov	y, $03
+	bne	_laLoop
+	mov	$03, a
+; 先読みループ
+_laLoop:
+	call	readSeq
+	mov	y, a			; ネガティブフラグの操作
+	bpl	_SetNextSteps		; <--- 音長/ゲートタイム・ベロシティ指定判定
+	cmp	a, #TIE			; is tie?
 	beq	_Tie
 
-+	cmp	a, #SEQCMD_START
-	bmi	_NotTie
+	cmp	a, #SEQCMD_START
+	bmi	_NotTie			; 通常音符の場合、切る
 	cmp	a, #CMD_PORTAM_OFF
 	beq	_NotTie			; 次コマンドがポルタメントOFFの場合、切る
+
+	mov	x, #0			; Jumpの分岐で使用する為、0(false)に
 	cmp	a, #CMD_JUMP
 	beq	_lookJump
 	cmp	a, #CMD_SUBROUTINE
 	bne	_lookSubBreak
-	inc	y
-_lookJump:
-	inc	y
-	mov	a, y
-	mov	y, #0
-	clrc
-	addw	ya, lSeqPointer
-	movw	lSeqPointer, ya
-	call	CmdJump
-	bra	--
 
+	; --- サブルーチン
+	call	readSeq
+	mov	llntmp+$100, a
+	inc	x
+
+	; --- ジャンプ・サブルーチン共通処理
+_lookJump:
+	call	_laJumpCmd
+	bra	_laLoop
+
+	; --- サブルーチンの途中離脱
 _lookSubBreak:
 	cmp	a, #CMD_SUBROUTINE_BREAK
 	bne	_lookSubReturn
-	push	x
 	setp
-	call	checkLoopNums
+	call	_checkLoopNumsLA
 	beq	_subreturn
-	pop	x
 	clrp
-	inc	y
-	bra	-
+	jmp	_laLoop
+
+	; --- サブルーチン末端
 _lookSubReturn:
-+	cmp	a, #CMD_SUBROUTINE_RETURN
-	bne	_skipCmd
-	push	x
+	cmp	a, #CMD_SUBROUTINE_RETURN
+	bne	_skipCmd			; ジャンプ系以外のコマンドは、スキップ
 	setp
-	call	checkLoopNums
+	call	_checkLoopNumsLA
 	bne	+
 _subreturn:
 	mov	a, #0
-	mov	loopStartAdrH+x, a
-	mov	a, loopReturnAdrH+x
+	mov	lLoopStartAdrH+x, a
+	mov	a, lLoopReturnAdrH+x
 	mov	y, a
-	mov	a, loopReturnAdrL+x
+	mov	a, lLoopReturnAdrL+x
 	bra	++
-+	mov	a, loopStartAdrH+x
+
++	mov	a, #0				; 疑似的にループを全て消化したものとする
+	mov	lLoopNumbers+x, a		; (※サブルーチン内が全てコマンドの場合の対策処理)
+	mov	a, lLoopStartAdrH+x
 	mov	y, a
-	mov	a, loopStartAdrL+x
+	mov	a, lLoopStartAdrL+x
 ++	clrp
 	movw	lSeqPointer, ya
-	pop	x
-	jmp	--
-
-_skipCmd:
-	setc
-	sbc	a, #SEQCMD_START
-	mov	x, a
-	mov	a, y
-	clrc
-	adc	a, !CmdLengthTable+x
-	mov	y, a
-	bra	-
+	jmp	_laLoop
 
 _NotTie:
 	pop	x
 	cmp	a, #REST			; 次が休符の場合は音を止めます
-	beq	+
+	beq	++
 	mov	a, track.bitFlags+x
 	and	a, #TRKFLG_PORTAM
-	beq	+
-	mov	a, track.releaseTiming+x
-	clrc
-	adc	a, track.step+x
+	beq	++
+	mov	a, $03
+	bne	+
+	mov	a, track.step+x
++	clrc
+	adc	a, track.releaseTiming+x
 	mov	track.releaseTiming+x, a
-+	mov	a, track.bitFlags+x
+++	mov	a, track.bitFlags+x
 	and	a, #(TRKFLG_TIE ~ $ff)
 	bra	_Join
 _Tie:
 	pop	x
 	mov	a, track.gate+x
 	mov	y, a
+	mov	a, $03
+	bne	+
 	mov	a, track.step+x
-	mul	ya
++	mul	ya
 	mov	$02, y
 	mov	a, track.releaseTiming+x
 	beq	+
@@ -550,20 +605,75 @@ _Tie:
 _Join:
 	mov	track.bitFlags+x, a
 
-	; --- ループ開始アドレスをリストア
-	push	x
-	mov	a, x
-	asl	a
-	mov	x, a
-	mov	a, $03
-	mov	loopStartAdrH+$100+x, a
-	mov	a, $04
-	mov	loopStartAdrH+$101+x, a
-	pop	x
-
 	movw	ya, $00
 	movw	lSeqPointer, ya
 	ret
+
+;--- ジャンプ系以外のコマンドの読み飛ばし処理
+_skipCmd:
+	setc
+	sbc	a, #SEQCMD_START
+	mov	x, a
+	mov	a, !CmdLengthTable+x
+	mov	y, #0
+	clrc
+	addw	ya, lSeqPointer
+	movw	lSeqPointer, ya
+	jmp	_laLoop
+
+
+_laJumpCmd:
+	; --- ルーチンアドレス読み出し
+	call	readSeq
+	push	a
+	call	readSeq
+	mov	y, a
+
+	; --- Jump分岐チェック
+	mov	a, x
+	bne	+			; --- false(ただのJump命令)
+	pop	a
+	jmp	SetRelativePointer
+
+	; --- サブルーチン用処理
++	mov	x, #0
+	mov	a, lLoopStartAdrH+$100
+	beq	+
+	inc	x
+	; --- ループ回数
++	mov	a, llntmp
+	mov	lLoopNumbers+x, a
+	; --- 戻りアドレスのセット
+	mov	a, lSeqPointer
+	mov	lLoopReturnAdrL+$100+x, a
+	mov	a, lSeqPointer+1
+	setp
+	mov	lLoopReturnAdrH+x, a
+	; --- ルーチン開始アドレスのセット
+	clrp
+	pop	a
+	call	SetRelativePointer
+	setp
+	mov	lLoopStartAdrL+x, a
+	mov	a, y
+	mov	lLoopStartAdrH+x, a
+	clrp
+	ret
+
+_checkLoopNumsLA:
+	mov	x, #0
+	mov	a, lLoopStartAdrH+1
+	beq	+
+	inc	x
++	mov	a, lLoopNumbers+x	; ループ残り回数チェック
+	ret
+
+.undefine	lLoopStartAdrL
+.undefine	lLoopStartAdrH
+.undefine	lLoopReturnAdrL
+.undefine	lLoopReturnAdrH
+.undefine	lLoopNumbers
+.undefine	llntmp
 
 /****************************************
  * FIR セットコマンド
@@ -585,6 +695,48 @@ CmdSetFIR:
 	clrc
 	addw	ya, lSeqPointer
 	movw	lSeqPointer, ya
+	ret
+
+;--------------------------------------------------
+; MusicProcess - TRACK EFFECT PROCESS
+;   Level       : 2 (Main Sub)
+;   Input       : none
+;   Output      : none
+;   Description : トラック毎のtick変化を実行
+;--------------------------------------------------
+trackEffect:
+
+_PanFade:
+	; --- パンフェード
+	mov	a, track.panFadeSpan+x
+	beq	_VolumeFade
+	mov	a, track.panFadeDtL+x
+	clrc
+	adc	a, track.panL+x
+	mov	track.panL+x, a
+	mov	a, track.panFadeDtH+x
+	adc	a, track.panH+x
+	mov	track.panH+x, a
+	mov	a, track.panFadeSpan+x
+	dec	a
+	mov	track.panFadeSpan+x, a
+
+_VolumeFade:
+	; --- ボリュームフェード
+	mov	a, track.volumeFadeSpan+x
+	beq	_endTrackEffect
+	mov	a, track.volumeFadeDtL+x
+	clrc
+	adc	a, track.volumeL+x
+	mov	track.volumeL+x, a
+	mov	a, track.volumeFadeDtH+x
+	adc	a, track.volumeH+x
+	mov	track.volumeH+x, a
+	mov	a, track.volumeFadeSpan+x
+	dec	a
+	mov	track.volumeFadeSpan+x, a
+
+_endTrackEffect:
 	ret
 
 /****************************************/

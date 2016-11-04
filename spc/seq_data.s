@@ -23,8 +23,12 @@ TrackHeader:
 	.dw	_Track6-TrackHeader
 	.dw	_Track7-TrackHeader
 	.dw	_Track8-TrackHeader
-	.dw	_Track9-TrackHeader
 	.dw	_Track10-TrackHeader
+	.dw	_Track9-TrackHeader
+	.dw	NULL
+	.dw	NULL
+	.dw	NULL
+	.dw	NULL
 
 _Track1:
 	.db	$60
@@ -51,7 +55,7 @@ _Track5:
 	.db	CMD_VOLUME, $40
 	.db	CMD_PAN, $20
 	.db	$30, $7f
-	.db	$bc, $bb, $bc
+	.db	$c8, $c7, $c8
 	.db	$00
 
 _Track6:
@@ -66,21 +70,21 @@ _Track2:
 	.db	CMD_VOLUME, $ff
 	.db	CMD_SET_INST, $04
 _Join:
-	.db	CMD_MODURATION, $10, $08, $20
+	.db	CMD_MODURATION, $08, $30, $ff
 ;	.db	CMD_TREMOLO, $00, $04, $c0
 	.db	CMD_PITCHBEND, $00, $10, -12
 	.db	CMD_ECHO_ON
 	.db	CMD_PORTAM_ON
 	.db	CMD_PAN, $10
 	.db	$18 $3f
-	.db	$b0, $b2
+	.db	$bc, $be
 	.db	CMD_PAN, $60
-	.db	$b4, $b2
+	.db	$c0, $be
 	.db	CMD_PAN, $b0
 	.db	CMD_PORTAM_OFF
-	.db	$b0, $bc
+	.db	$bc, $c8
 	.db	CMD_PAN, $e0
-	.db	$b0, REST
+	.db	$bc, REST
 	.db	CMD_SUBROUTINE, 0
 	.dw	(_Sub1-TrackHeader)
 	.db	CMD_JUMP
@@ -128,25 +132,25 @@ _Track9:
 	.db	CMD_VOLUME, $ff
 	.db	CMD_PAN, $20
 	.db	$30, $7b
-	.db	$b8
+	.db	$d0
 	.db	CMD_SET_INST, $03
 	.db	CMD_ECHO_ON
 	.db	$30, $7f
-	.db	$b8
+	.db	$d0
 	.db	CMD_SET_INST, $02
 	.db	CMD_ECHO_OFF
 	.db	$18, $7b
-	.db	$b8, $b8
+	.db	$d0, $d0
 	.db	CMD_SET_INST, $03
 	.db	CMD_ECHO_ON
 	.db	$18, $7f
-	.db	$b8
+	.db	$d0
 	.db	CMD_SET_INST, $02
 	.db	CMD_ECHO_OFF
 	.db	$06, $7c
-	.db	$b8
+	.db	$d0
 	.db	$06, $77
-	.db	$b8, $b8, $b8
+	.db	$d0, $d0, $d0
 	.db	CMD_JUMP
 	.dw	(_Track9-TrackHeader)
 _Track9End:
@@ -165,14 +169,14 @@ _Track13:	; ƒ|ƒeƒg
 _Track13End:
 
 _Sub1:
-	.db	$b0, $b0, $b0, REST
+	.db	$bc, $bc, $bc, REST
 	.db	CMD_SUBROUTINE, 3
 	.dw	(_Sub2-TrackHeader)
-	.db	$a0
+	.db	$ac
 	.db	CMD_SUBROUTINE_RETURN
 
 _Sub2:
-	.db	$bc, CMD_SUBROUTINE_BREAK, $c0
+	.db	$c8, CMD_SUBROUTINE_BREAK, $cc
 	.db	CMD_SUBROUTINE_RETURN
 
 .ends

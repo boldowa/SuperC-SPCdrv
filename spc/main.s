@@ -15,7 +15,7 @@
 .bank 2 slot 2
 .orga __CODE_START__ - 34
 	.db	"VER "
-	.db	$00, $50
+	.db	$00, $70
 	.db	"DIR "
 	.dw	DirTbl
 	.db	"ESA "
@@ -29,6 +29,9 @@
 .incdir  ""
 .bank 3 slot 3
 .org 0
+.printt "CODE_START : 0x"
+.printv HEX __CODE_START__
+.printt "\n"
 .section "__main__" force
 ;--------------------------------------------------
 ; Start - SPC PROGRAM ROOT

@@ -12,7 +12,7 @@
 /**
  * 定数
  */
-#define TRACKS 10
+#define TRACKS 12
 #define TRACK_SIZE_MAX 0x1000
 #define SUBROUTINE_MAX 128
 #define DATA_MAX 0x4000

@@ -23,6 +23,17 @@ DspPreProcess:
 ; チャンネル毎のデータを更新する
 ; (Vol, Pitch, Srcn, ADSR, Gain)
 
+	; キーオフ(キーオンする場所は対象外)
+	mov	a, buf_keyon
+	eor	a, #$ff
+	and	a, buf_keyoff
+	mov	SPC_REGADDR, #DSP_KOF
+	mov	SPC_REGDATA, a
+
+	; 音の鳴っていない、且つKEYONしないCHを開放する
+	; (※ 重くなる、もしくは割り当て不安定なら、要コメントアウト)
+	call	DspReleaseMuteChannel
+
 	mov	x, #0			; x ... ch更新情報メモリ読出しカウンタ
 	mov	y, #0			; y ... DSP メモリアドレス
 
@@ -64,15 +75,6 @@ __	mov	SPC_REGADDR, y
 	; キーオン
 	mov	a, buf_keyon
 	mov	SPC_REGADDR, #DSP_KON
-	mov	SPC_REGDATA, a
-	; 音の鳴っていない、且つKEYONしないCHを開放する
-	; (※ 重くなる、もしくは割り当て不安定なら、要コメントアウト)
-	;call    DspReleaseMuteChannel
-	; キーオフ(キーオンする場所は対象外)
-	mov	a, buf_keyon
-	eor	a, #$ff
-	mov	SPC_REGADDR, #DSP_KOF
-	and	a, buf_keyoff
 	mov	SPC_REGDATA, a
 
 	; RAMの始末をする
@@ -126,6 +128,8 @@ _ChannelLoop:
 _CalcPitch
 	push	x
 	mov	a, track.curKey+x
+	clrc
+	adc	a, track.transpose+x
 	push	a
 	call	CalcScale
 	movw	lPitch, ya
@@ -178,7 +182,10 @@ _Detune:
 	bne	_CalcVol1
 _Tremolo:
 	mov	a, track.tremoloPhase+x
-	mov	y, a
+	asl	a
+	bcc	+
+	eor	a, #$ff
++	mov	y, a
 	mov	a, track.tremoloDepth+x
 	mul	ya
 	mov	a, y
@@ -209,12 +216,12 @@ _CalcVol:
 	bra	_VolLevel
 
 _Panpot:
+	and	a, #$3f
 	cmp	a, #$3f
 	bne	+
 	mov	a, lTemp
 	bra	++
-+	and	a, #$3f
-	mov	y, a
++	mov	y, a
 	mov	a, #0
 	push	x
 	mov	x, #$3f
@@ -236,8 +243,12 @@ _VolLevel:
 	mov	a, track.volumeH+x
 	mul	ya
 	inc	y
-	mov	a, musicGlobalVolume
-	mul	ya
+	cmp     x, #MUSICTRACKS
+	bmi	+
+	mov	a, seGlobalVolume
+	bra	++
++	mov	a, musicGlobalVolume
+++	mul	ya
 	mov	lrvol, y
 
 	; --- left
@@ -247,8 +258,12 @@ _VolLevel:
 	mov	a, track.volumeH+x
 	mul	ya
 	inc	y
-	mov	a, musicGlobalVolume
-	mul	ya
+	cmp     x, #MUSICTRACKS
+	bmi	+
+	mov	a, seGlobalVolume
+	bra	++
++	mov	a, musicGlobalVolume
+++	mul	ya
 	mov	llvol, y
 
 	/******************************/
@@ -265,13 +280,15 @@ _Modulation:
 	mov	lTemp+1, a
 	and	a, #$c0
 	beq	+
-	cmp	a, #$c0
+	cmp	a, #$80
 	beq	+
 	eor	lTemp+1, #$3f
 +	and	lTemp+1, #$3f
 	push	x
 	; --- 振動幅を取得する
 	mov	a, track.curKey+x
+	clrc
+	adc	a, track.transpose+x
 	;call	CalcScaleDiff
 	call	CalcScale
 	pop	x
@@ -411,30 +428,40 @@ DspReleaseMuteChannel:
 	mov     x, #0
 	mov	y, #0
 	mov	a, #DSP_ENVX
--	mov	SPC_REGADDR, a
-	mov	a, SPC_REGDATA
+_DspReleaseLoop:
+-	mov	SPC_REGADDR, a			; ChのENVXアドレスをセット
+
+	; --- キーオン対象のチャンネルはチェック対象から除外
+	mov	a, buf_keyon
+	and	a, !ChBitTable+x
+	bne	_SkipCh
+
+	; --- チャンネルで使用しているトラックが、
+	;     Releaseモードになっているかチェック
+	mov	a, !buf_chData.allocTrack+y
+	bmi	_SkipCh
+	push	x
+	mov	x, a
+	mov	a, track.releaseTiming+x
+	pop	x
+	bne	_SkipCh
+
 	; ENVX が 0かどうかをチェック
 	; ENVXが0ではないなら音が鳴っているので、
 	; チャンネル開放の対象から外す
-	bne	+
+	mov	a, SPC_REGDATA
+	bne	_SkipCh
 
-	; ENVX = 0、つまり音が鳴り終わっている
-	; KEYONもしないなら、そのchはフリーになっているはずなので、
-	; 開放対象のチャンネルとする
-	mov     a, !ChBitTable+x
-	and     a, buf_keyon
-	bne     +
-
-	; ENVX=0, KEYON いずれも0なので、
 	; チャンネルを開放する
 	mov     a, !ChBitTable+x
 	or      a, buf_keyoff
-	mov     a, buf_keyoff			; 音が鳴っていないのであまり意味はないが、KEYOFFする
+	mov     buf_keyoff, a			; 音が鳴っていないのであまり意味はないが、KEYOFFする
 	mov	a, #$ff				; 0xff = 割り当てTrackなし
 	mov	buf_chData.allocTrack+y, a
 
 	; ループ前処理
-+	mov	a, y
+_SkipCh:
+	mov	a, y
 	clrc
 	adc	a, #_sizeof_stChannel
 	mov	y, a
@@ -442,7 +469,7 @@ DspReleaseMuteChannel:
 	mov     a, x
 	or      a, #(DSP_ENVX << 4)
 	xcn	a
-	bpl	-					; 8CH分ループ
+	bpl	_DspReleaseLoop			; 8CH分ループ
 	ret
 ;------------------------------
 ; local values undefine

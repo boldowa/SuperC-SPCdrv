@@ -53,14 +53,7 @@ CmdSubroutine:
 	mov	a, y
 	mov	(loopStartAdrH+$100)+x, a
 	
-	; ---debug
-;	mov	a,x
-;	lsr	a
-;	bcc	+
-;	stop
-	; ---debug
 +	pop	x
-	;stop
 	ret
 
 

@@ -20,10 +20,6 @@ CmdSetInstrument:
 	call	readSeq
 
 SetInstrumentA:
-	;--- switch noise
-	cmp	a, #$e0		; e0 ~ ff : noise
-	bcs	_Noise
-
 	cmp	a, #EXTONE_START
 	bmi	+
 	sbc	a, #EXTONE_START
@@ -42,30 +38,9 @@ GetToneCfg:
 	mul	ya
 	addw	ya, toneTblPtr
 	movw	toneTblPtr, ya
-	;--- clear noise flag
-	mov	a, #($ff ~ TRKFLG_NOISE)
-	and	a, track.bitFlags+x
-	mov	track.bitFlags+x, a
-	;--- read tone settings
 	mov	y, #0
 	mov	a, [toneTblPtr]+y
-	mov	track.brrInx+x, a
-	inc	y
-	mov	a, [toneTblPtr]+y
-	mov	track.pitchRatio+x, a
-	inc	y
-	mov	a, [toneTblPtr]+y
-	mov	track.detune+x, a
-	inc	y
-	mov	a, [toneTblPtr]+y
-	mov	track.adr+x, a
-	inc	y
-	mov	a, [toneTblPtr]+y
-	mov	track.sr+x, a
-	inc	y
-	mov	a, [toneTblPtr]+y
-	mov	track.rr+x, a
-	ret
+	bpl	_NoNoise
 
 _Noise:
 	;--- mask noise clock
@@ -82,9 +57,34 @@ _Noise:
 	mov	a, #TRKFLG_NOISE
 	or	a, track.bitFlags+x
 	mov	track.bitFlags+x, a
-	;--- Instrument clear
-	mov	a, #0
-	mov	track.brrInx+x, a
+	;--- BRR num = 0
+	mov	a, y
+	bra	+
+
+_NoNoise:
+	;--- clear noise flag
+	mov	a, #($ff ~ TRKFLG_NOISE)
+	and	a, track.bitFlags+x
+	mov	track.bitFlags+x, a
+
+	;--- read tone settings
+	mov	a, [toneTblPtr]+y
++	mov	track.brrInx+x, a
+	inc	y
+	mov	a, [toneTblPtr]+y
+	mov	track.pitchRatio+x, a
+	inc	y
+	mov	a, [toneTblPtr]+y
+	mov	track.detune+x, a
+	inc	y
+	mov	a, [toneTblPtr]+y
+	mov	track.adr+x, a
+	inc	y
+	mov	a, [toneTblPtr]+y
+	mov	track.sr+x, a
+	inc	y
+	mov	a, [toneTblPtr]+y
+	mov	track.rr+x, a
 	ret
 
 ;------------------------------

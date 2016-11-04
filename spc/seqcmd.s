@@ -38,28 +38,40 @@ CmdTable:
 	.dw	CmdSubroutineReturn
 	.dw	CmdSubroutineBreak
 	.dw	CmdPitchBend
+	.dw	CmdTempoFade
+	.dw	CmdVolumeFade
+	.dw	CmdGlobalVolumeFade
+	.dw	CmdTranspose
+	.dw	CmdRelativeTranspose
+	.dw	CmdPanFade
 
 CmdLengthTable:
-	.db	2	; CmdSetInstrument
-	.db	2	; CmdVolume
-	.db	2	; CmdPanpot
-	.db	3	; CmdJump
-	.db	2	; CmdTempo
-	.db	2	; CmdGlobalVolume
-	.db	1	; CmdEchoOn
-	.db	1	; CmdEchoOff
-	.db	4	; CmdEchoParam
-	.db	9	; CmdSetFIR
-	.db	1	; CmdPortamentoOn
-	.db	1	; CmdPortamentoOff
-	.db	4	; CmdPitchModulation
-	.db	1	; CmdPitchModulationOff
-	.db	4	; CmdTremolo
-	.db	1	; CmdTremoloOff
-	.db	4	; CmdSubroutine
-	.db	1	; CmdSubroutineReturn
-	.db	1	; CmdSubroutineBreak
-	.db	4	; CmdPitchBend
+	.db	1	; CmdSetInstrument
+	.db	1	; CmdVolume
+	.db	1	; CmdPanpot
+	.db	2	; CmdJump
+	.db	1	; CmdTempo
+	.db	1	; CmdGlobalVolume
+	.db	0	; CmdEchoOn
+	.db	0	; CmdEchoOff
+	.db	3	; CmdEchoParam
+	.db	8	; CmdSetFIR
+	.db	0	; CmdPortamentoOn
+	.db	0	; CmdPortamentoOff
+	.db	3	; CmdPitchModulation
+	.db	0	; CmdPitchModulationOff
+	.db	3	; CmdTremolo
+	.db	0	; CmdTremoloOff
+	.db	3	; CmdSubroutine
+	.db	0	; CmdSubroutineReturn
+	.db	0	; CmdSubroutineBreak
+	.db	3	; CmdPitchBend
+	.db	2	; CmdTempoFade
+	.db	2	; CmdVolumeFade
+	.db	2	; CmdGlobalVolumeFade
+	.db	1	; CmdTranspose
+	.db	1	; CmdRelativeTranspose
+	.db	2	; CmdPanFade
 
 ;--------------------------------------------------
 ; Command Include
@@ -76,6 +88,11 @@ CmdLengthTable:
 .include	"CmdTremolo.s"
 .include	"CmdSubroutine.s"
 .include	"CmdPitchBend.s"
+.include	"CmdTempoFade.s"
+.include	"CmdVolumeFade.s"
+.include	"CmdGlobalVolumeFade.s"
+.include	"CmdTranspose.s"
+.include	"CmdPanFade.s"
 
 .ends
 

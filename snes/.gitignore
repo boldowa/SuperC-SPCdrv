@@ -1,0 +1,19 @@
+# Prerequisites
+*.d
+
+# Compiled Object
+*.o
+
+# link config file
+linkfile
+
+# Compiled libraries
+*.lib
+
+# Linked object
+*.smc
+*.bin
+
+# Symbol file
+*.sym
+

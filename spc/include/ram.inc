@@ -15,7 +15,7 @@
 ;------------------------------------------------
 ; DEFINES...
 ;------------------------------------------------
-.define MUSICTRACKS 10			; 音楽で使用するトラック数
+.define MUSICTRACKS 12			; 音楽で使用するトラック数
 .define SETRACKS 3			; 総トラックのうち、効果音で使用するトラック数
 .define TRACKS (MUSICTRACKS + SETRACKS)	; 音楽と効果音で使用する総トラック数
 
@@ -62,8 +62,11 @@
 	taskCounter			db	; 処理を回す回数
 	sndTempoCounter			db	; 効果音のテンポカウンタ
 	musicTempoCounter		db	; 音楽テンポカウンタ
+	musicTempoLo			db	; 音楽テンポ
 	musicTempo			db	; 音楽テンポ
+	musicGlobalVolumeL		db	; 音楽ボリューム
 	musicGlobalVolume		db	; 音楽ボリューム
+	seGlobalVolume			db	; 効果音ボリューム
 	specialWavFreq			db	; 特殊波形の周波数
 	specialWavFreqCounter		db	; 特殊波形の周波数カウンタ
 	specialWavPtr			db	; 特殊波形の処理ポインタ値
@@ -99,9 +102,9 @@
 ;     +---+---+---+---+---+---+---+---+
 ; $00 |                               |
 ;  :  |        テンポラリ予約         |
-; $08 |                               |
+; $10 |                               |
 ;     +---+---+---+---+---+---+---+---+
-.enum $08
+.enum $10
 ;----------------------------------------
 ; サブルーチンコマンド用変数
 ; 1回だけネスト可能
@@ -165,6 +168,12 @@
 ; track情報
 ;----------------------------------------
 	track INSTANCEOF stTrack
+	tempoFadeDeltaL	db
+	tempoFadeDeltaH	db
+	tempoFadeSpan	db
+	mgvolFadeDtL	db
+	mgvolFadeDtH	db
+	mgvolFadeSpan	db
 
 ;+----------------------------+
 ;|End RAM / Program Area Start|

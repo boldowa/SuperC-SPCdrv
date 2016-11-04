@@ -12,8 +12,8 @@
 
 SearchUseCh:
 	mov	lTrackIndex, x
-	mov	y, #0
 	mov	x, #0
+	mov	y, #0
 -	mov	a, buf_chData.allocTrack+x
 	cmp	a, lTrackIndex			; 現在解析中のtrackと一致する？
 	beq	+				; 割り当てられているチャンネル情報を返却

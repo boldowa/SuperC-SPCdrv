@@ -80,6 +80,44 @@
     </tr>
 
     <tr>
+      <td>#tone <b>...</b></td>
+      <td>Define tones for music. <br>
+          <p style="font-size: 1.2em;">Syntax:</p>
+          <p style="font-weight: bold;">ADSR MODE:</p>
+          <p style="margin-left: 2em;">#tone <b>n1</b>,<b>n2</b>,<b>n3</b>,<b>n4</b>,<b>n5</b>,<b>n6</b>,<b>n7</b>,<b>n8</b>,<b>n9</b></p>
+          <p style="margin-left: 3em;">n1 ... BRR - BRR name or BRR number (e.g. "smpl/piano.brr" or 0)</p>
+          <p style="margin-left: 3em;">n2 ... Pitch multiple(0~255)</p>
+          <p style="margin-left: 3em;">n3 ... Tuning(-128~127)</p>
+          <p style="margin-left: 3em;">n4 ... 1(ADSR)</p>
+          <p style="margin-left: 3em;">n5 ... Attack Rate(0~15)</p>
+          <p style="margin-left: 3em;">n6 ... Decay Rate(0~7)</p>
+          <p style="margin-left: 3em;">n7 ... Sustain Level(0~7)</p>
+          <p style="margin-left: 3em;">n8 ... Sustain Rate(0~31)</p>
+          <p style="margin-left: 3em;">n9 ... Release Rate(0~31)</p>
+          <p style="font-weight: bold;">GAIN MODE:</p>
+          <p style="margin-left: 2em;">#tone <b>n1</b>,<b>n2</b>,<b>n3</b>,<b>n4</b>,<b>n5</b>,<b>n6</b>,<b>n7</b>,<b>n8</b></p>
+          <p style="margin-left: 3em;">n1 ... BRR - BRR name or BRR number (e.g. "smpl/piano.brr" or 0)</p>
+          <p style="margin-left: 3em;">n2 ... Pitch multiple(0~255)</p>
+          <p style="margin-left: 3em;">n3 ... Tuning(-128~127)</p>
+          <p style="margin-left: 3em;">n4 ... 0(GAIN)</p>
+          <p style="margin-left: 3em;">n5 ... Atack Gain mode 1 (0: Direct / 1: Linear Decrease / 2: Exp Decrease / 3: Linear Increase / 4: Bent Increase)</p>
+          <p style="margin-left: 3em;">n6 ... Atack Gain param 1 (Direct mode: 0~127 / Other modes: 0-31)</p>
+          <p style="margin-left: 3em;">n7 ... Release Gain mode 2</p>
+          <p style="margin-left: 3em;">n8 ... Release Gain param 2</p>
+          <p style="margin-left: 2em;">e.g. #tone "smpl/lead.brr",5,0,1,15,7,7,0,18</p></td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>#drum <b>...</b></td>
+      <td>Define drum set for music. <br>
+          <p style="font-size: 1.2em;">Syntax:</p>
+          <p style="margin-left: 2em;">#tone command syntax <b>+ panpot(0-63) + note number(0~83)</b></p>
+          <p style="margin-left: 2em;">e.g. #drum "smpl/kick.brr",4,0,1,15,3,4,29,31<b>,32,48</b></p></td>
+      <td>○</td>
+    </tr>
+
+    <tr>
       <td>#macro <b>MACRONAME</b> ...</td>
       <td>Define replace macro<br>ex. #macro MACNAME @2</td>
       <td>○</td>
@@ -153,7 +191,13 @@
 
     <tr>
       <td>@<b>n1</b></td>
-      <td>Set instrument</td>
+      <td>Set instrument from music tone table</td>
+      <td>○</td>
+    </tr>
+
+    <tr>
+      <td>@@<b>n1</b></td>
+      <td>Set instrument from internal tone table</td>
       <td>○</td>
     </tr>
 

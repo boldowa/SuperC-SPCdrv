@@ -1,0 +1,14 @@
+
+--langmap=Asm:
+--langdef=WLA65816
+--langmap=WLA65816:.s.asm.inc.i.mac.tab
+--regex-WLA65816=/^([a-zA-Z_][a-zA-Z_0-9]+):/\1/l,label/
+--regex-WLA65816=/\s*\.[dD][eE][fF][iI][nN][eE]\s+([a-zA-Z_][a-zA-Z_0-9]*)/\1/d,define/
+--regex-WLA65816=/\s*\.[mM][aA][cC][rR][oO]\s+([a-zA-Z_][a-zA-Z_0-9]*)/\1/m,macro/
+--regex-WLA65816=/\s*\.[sS][tT][rR][uU][cC][tT]\s+([a-zA-Z_][a-zA-Z_0-9]*)/\1/s,struct/
+--regex-WLA65816=/\s*\.[dD][sS][tT][rR][uU][cC][tT]\s+([a-zA-Z_][a-zA-Z_0-9]*)/\1/d,define/
+--regex-WLA65816=/^\s*([a-zA-Z_][a-zA-Z_0-9]*)\s+[dD][bBwWsS][bBwW]?\s*/\1/d,define/
+--regex-WLA65816=/^\s*([a-zA-Z_][a-zA-Z_0-9]*)\s+[iI][nN][sS][tT][aA][nN][cC][eE][oO][fF]\s*/\1/d,define/
+--excmd=number
+--exclude=Makefile
+

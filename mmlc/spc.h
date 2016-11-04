@@ -81,4 +81,5 @@ typedef struct {
 bool coreread(stSpcCore*, char*);
 void freecore(stSpcCore*);
 bool makeSPC(byte*, stSpcCore*, MmlMan*, BinMan*, stBrrListData*);
+int makeBin(byte*, stSpcCore*, MmlMan*, BinMan*, stBrrListData*);
 

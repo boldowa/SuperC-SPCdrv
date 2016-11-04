@@ -4,8 +4,8 @@
 
 #DEBUG	= 1
 CLANG	= 1
-#WIN32	= 1
-#x86	= 1
+WIN32	= 1
+x86	= 1
 
 TARGET	= mmlc
 

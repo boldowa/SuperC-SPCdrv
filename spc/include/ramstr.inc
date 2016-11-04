@@ -45,6 +45,7 @@
 	sr		dsb	TRACKS		; GAINモードのとき、2バイト目はGAIN値になります
 	rr		dsb	TRACKS		; releaseTimingで、SR値をこの値に書き換えます
 	curKey		dsb	TRACKS
+	transpose	dsb	TRACKS
 	panL		dsb	TRACKS
 	panH		dsb	TRACKS
 	volumeL		dsb	TRACKS
@@ -71,6 +72,12 @@
 	pitchBendDelta	dsb	TRACKS
 	pitchBendPhase	dsb	TRACKS
 	pitchBendKey	dsb	TRACKS
+	volumeFadeSpan	dsb	TRACKS
+	volumeFadeDtL	dsb	TRACKS
+	volumeFadeDtH	dsb	TRACKS
+	panFadeSpan	dsb	TRACKS
+	panFadeDtL	dsb	TRACKS
+	panFadeDtH	dsb	TRACKS
 .endst
 
 ;----------------------------------------

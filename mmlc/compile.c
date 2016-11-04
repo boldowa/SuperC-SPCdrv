@@ -67,12 +67,19 @@ enum commandlist{
 	CMD_SUBROUTINE_RETURN,
 	CMD_SUBROUTINE_BREAK,
 	CMD_PITCHBEND,
+	CMD_TEMPO_FADE,
+	CMD_VOLUME_FADE,
+	CMD_GVOLUME_FADE,
+	CMD_TRANSPOSE,
+	CMD_REL_TRANSPOSE,
+	CMD_PAN_FADE,
 };
 
 /**
  * 音階テーブル
  */
 static const byte SCALE_TABLE[] = {9, 11, 0, 2, 4, 5, 7};
+static const byte DRUM_TABLE[] = {6, 7, 0, 1, 2, 3, 4};
 
 /* トラックデータ */
 typedef struct stTrack
@@ -478,11 +485,11 @@ stLabelNode* searchLabelNode(stLabelNode* node, int label)
 int getHex(char c)
 {
 	c = tolower(c);
-	if('0' <= c || c <= '9')
+	if('0' <= c && c <= '9')
 	{
 		return (c - '0');
 	}
-	if('a' <= c || c <= 'f')
+	if('a' <= c && c <= 'f')
 	{
 		return (c - 'a' + 10);
 	}
@@ -720,6 +727,22 @@ bool calcSteps(int* ticks, int defaultTicks, int timebase, MmlMan* mml, ErrorNod
 	int tick_ctr;
 	ErrorNode *compileErr = NULL;
 
+	/* 音長のticks直指定 */
+	if('=' == mmlgetch(mml))
+	{
+		mmlgetforward(mml);
+		getNums = getNumbers(mml, false, tmpNums, compileErr);
+		if(0 == getNums || 1<getNums)
+		{
+			/* "c=", "c=24,12" 等の場合、エラー */
+			return false;
+		}
+
+		*ticks = tmpNums[0];
+		return true;
+	}
+
+	/* 通常のmmlの形式での音長指定                */
 	/* "a32" "b" "cx4" 等は許容します。           */
 	/* "cx4"はmml的に変なので、隠し仕様とします。 */
 	getNums = getNumbers(mml, false, tmpNums, compileErr);
@@ -1112,44 +1135,51 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						addError(compileErr, compileErrList);
 
 						/* 音階の算出 */
-						octaveTmp = tracks.curOctave[tracks.curTrack];
-						scale = SCALE_TABLE[(readValue - 'a')];
-
-						/* +/- による半音補正 */
-						readValue = mmlgetch(mml);
-						if(readValue == '+' || readValue == '#')  /* いちおう半角の#に対応させておく */
+						if(false == tracks.drumPart[tracks.curTrack])
 						{
-							mmlgetforward(mml);
-							scale++;
-						}
-						else if(readValue == '-')
-						{
-							mmlgetforward(mml);
-							scale--;
-						}
+							octaveTmp = tracks.curOctave[tracks.curTrack];
+							scale = SCALE_TABLE[(readValue - 'a')];
 
-						/* トランスポーズ */
-						scale += tracks.transpose[tracks.curTrack];
+							/* +/- による半音補正 */
+							readValue = mmlgetch(mml);
+							if(readValue == '+' || readValue == '#')  /* いちおう半角の#に対応させておく */
+							{
+								mmlgetforward(mml);
+								scale++;
+							}
+							else if(readValue == '-')
+							{
+								mmlgetforward(mml);
+								scale--;
+							}
 
-						/* scaleが 0 ～ 11 の値になるよう補正 */
-						if(0 > scale || 11 < scale)
-						{
-							octaveTmp += (scale / 12);
-							scale %= 12;
-						}
+							/* トランスポーズ */
+							scale += tracks.transpose[tracks.curTrack];
 
-						/* オクターブチェック */
-						if(OCTAVE_MIN > octaveTmp || OCTAVE_MAX < octaveTmp)
-						{
-							/* ログ出力 */
-							newError(mml, compileErr, compileErrList);
-							compileErr->type = SyntaxError;
-							compileErr->level = ERR_ERROR;
-							sprintf(compileErr->message, "Octave range over : o%d", octaveTmp);
-							addError(compileErr, compileErrList);
-							continue;
+							/* scaleが 0 ～ 11 の値になるよう補正 */
+							if(0 > scale || 11 < scale)
+							{
+								octaveTmp += (scale / 12);
+								scale %= 12;
+							}
+
+							/* オクターブチェック */
+							if(OCTAVE_MIN > octaveTmp || OCTAVE_MAX < octaveTmp)
+							{
+								/* ログ出力 */
+								newError(mml, compileErr, compileErrList);
+								compileErr->type = SyntaxError;
+								compileErr->level = ERR_ERROR;
+								sprintf(compileErr->message, "Octave range over : o%d", octaveTmp);
+								addError(compileErr, compileErrList);
+								continue;
+							}
+							note = ((octaveTmp-OCTAVE_MIN)*12 + scale) | 0x80;
 						}
-						note = ((octaveTmp-OCTAVE_MIN)*12 + scale) | 0x80;
+						else
+						{
+							note = DRUM_TABLE[(readValue - 'a')] + DRUM_NOTE;
+						}
 					}
 
 					/* Step算出 */
@@ -1241,6 +1271,32 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
 				putSeq(&tracks, tempVal[1], loopDepth, mml, compileErr);
 				putSeq(&tracks, tempVal[2], loopDepth, mml, compileErr);
+				break;
+
+			/******************************************/
+			/* トランスポーズ                         */
+			/******************************************/
+			case 'T':
+				/* ログ出力 */
+				newError(mml, compileErr, compileErrList);
+				compileErr->type = ErrorNone;
+				compileErr->level = ERR_DEBUG;
+				sprintf(compileErr->message, "Transpose");
+				addError(compileErr, compileErrList);
+
+				if(1 != getNumbers(mml, false, tempVal, compileErrList))
+				{
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "Invalid transpose.");
+					addError(compileErr, compileErrList);
+					continue;
+				}
+
+				/* トランスポーズコマンド挿入 */
+				putSeq(&tracks, CMD_TRANSPOSE, loopDepth, mml, compileErr);
+				putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
 				break;
 
 			/******************************************/
@@ -1442,6 +1498,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					int nums = 0;
 					int* arg = tempVal;
 					bool isFile = false;
+					bool isNoise = false;
 					char fileName[MAX_PATH];
 					int fileNameInx = 0;
 					int localBrrInx = 0;
@@ -1558,6 +1615,12 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						validNums--;
 						skipspaces(mml);
 					}
+					else if('n' == readValue)	/* ノイズクロック指定 */
+					{
+						/* 'n' の読み飛ばし */
+						mmlgetforward(mml);
+						isNoise = true;
+					}
 
 					/* 引数取得 */
 					nums = getNumbers(mml, true, tempVal, compileErrList);
@@ -1583,6 +1646,11 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					if(false == isFile)
 					{
 						localBrrInx = tempVal[0];
+						if(true == isNoise)
+						{
+							localBrrInx &= 0x1f;
+							localBrrInx |= 0x80;
+						}
 						arg++;
 					}
 
@@ -1778,7 +1846,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						break;
 
 					/******************************************/
-					/* トランスポーズ                         */
+					/* 内部トランスポーズ                     */
 					/******************************************/
 					case 't':
 						mmlgetforward(mml);
@@ -1787,11 +1855,38 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							newError(mml, compileErr, compileErrList);
 							compileErr->type = SyntaxError;
 							compileErr->level = ERR_ERROR;
-							sprintf(compileErr->message, "Invalid transpose.");
+							sprintf(compileErr->message, "Invalid internal transpose.");
 							addError(compileErr, compileErrList);
 							continue;
 						}
 						tracks.transpose[tracks.curTrack] = tempVal[0];
+						break;
+
+					/******************************************/
+					/* 相対トランスポーズ                     */
+					/******************************************/
+					case 'T':
+						mmlgetforward(mml);
+						/* ログ出力 */
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = ErrorNone;
+						compileErr->level = ERR_DEBUG;
+						sprintf(compileErr->message, "Transpose");
+						addError(compileErr, compileErrList);
+
+						if(1 != getNumbers(mml, false, tempVal, compileErrList))
+						{
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_ERROR;
+							sprintf(compileErr->message, "Invalid relative transpose.");
+							addError(compileErr, compileErrList);
+							continue;
+						}
+
+						/* トランスポーズコマンド挿入 */
+						putSeq(&tracks, CMD_REL_TRANSPOSE, loopDepth, mml, compileErr);
+						putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
 						break;
 
 					/******************************************/
@@ -1865,10 +1960,10 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							}
 							if(1 == nums && tempVal[0] == 0)
 							{
-								tracks.drumPart[tracks.curTrack] = true;
+								tracks.drumPart[tracks.curTrack] = false;
 								break;
 							}
-							tracks.drumPart[tracks.curTrack] = false;
+							tracks.drumPart[tracks.curTrack] = true;
 						}
 						break;
 
@@ -2096,30 +2191,6 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						tone = tempVal[0];
 						break;
 
-					/* ノイズクロック指定 */
-					case 'n':
-						mmlgetforward(mml);
-						if(1 != getNumbers(mml, false, tempVal, compileErrList))
-						{
-							newError(mml, compileErr, compileErrList);
-							compileErr->type = SyntaxError;
-							compileErr->level = ERR_ERROR;
-							sprintf(compileErr->message, "Invalid noise clock specifyed.");
-							addError(compileErr, compileErrList);
-							continue;
-						}
-						if(32 <= tempVal[0] || 0 > tempVal[0])
-						{
-							newError(mml, compileErr, compileErrList);
-							compileErr->type = SyntaxError;
-							compileErr->level = ERR_ERROR;
-							sprintf(compileErr->message, "Invalid noise clock specifyed.");
-							addError(compileErr, compileErrList);
-							continue;
-						}
-						tone = tempVal[0] | 0xe0;
-						break;
-
 					/* シーケンス付随音色 */
 					default:
 						if(1 != getNumbers(mml, false, tempVal, compileErrList))
@@ -2227,7 +2298,9 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					}
 
 					/* パンフェードコマンド挿入 */
-					/* TODO: ドライバに実装なし */
+					putSeq(&tracks, CMD_PAN_FADE, loopDepth, mml, compileErr);
+					putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
+					putSeq(&tracks, (tempVal[1]&0x3f), loopDepth, mml, compileErr);
 					break;
 				}
 
@@ -2286,7 +2359,16 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					}
 
 					/* ボリュームフェードコマンド挿入 */
-					/* TODO: ドライバに実装なし */
+					if(readValue == 'v')
+					{
+						putSeq(&tracks, CMD_VOLUME_FADE, loopDepth, mml, compileErr);
+					}
+					else
+					{
+						putSeq(&tracks, CMD_GVOLUME_FADE, loopDepth, mml, compileErr);
+					}
+					putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
+					putSeq(&tracks, tempVal[1], loopDepth, mml, compileErr);
 					break;
 				}
 
@@ -2377,6 +2459,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 			case 't':
 				{
 					int nums;
+					double t;
+					byte tempo;
 
 					/* ログ出力 */
 					newError(mml, compileErr, compileErrList);
@@ -2401,8 +2485,6 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						/* bpm -> テンポ値変換                      */
 						/* SuperC N-SPCstyleの場合、1cycle = 2ms    */
 						/* timer 1cycle 125us * 16count             */
-						double t;
-						byte tempo;
 						t = 60.0 / tempVal[0];     /* 4分音符時間 */
 						t /= timebase;           /* 1tick時間   */
 						t /= (0.000125 * TIMER); /* 割合        */
@@ -2415,7 +2497,18 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					}
 
 					/* テンポフェードコマンド挿入 */
-					/* TODO: ドライバに実装なし */
+
+					/* bpm -> テンポ値変換                      */
+					/* SuperC N-SPCstyleの場合、1cycle = 2ms    */
+					/* timer 1cycle 125us * 16count             */
+					t = 60.0 / tempVal[1];     /* 4分音符時間 */
+					t /= timebase;           /* 1tick時間   */
+					t /= (0.000125 * TIMER); /* 割合        */
+					tempo = 256.0 / t;
+
+					putSeq(&tracks, CMD_TEMPO_FADE, loopDepth, mml, compileErr);
+					putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
+					putSeq(&tracks, tempo, loopDepth, mml, compileErr);
 
 					break;
 				}

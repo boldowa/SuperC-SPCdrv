@@ -312,3 +312,126 @@ bool makeSPC(byte* spc, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData
 	return true;
 }
 
+/**
+ * SNES link向けの、バイナリデータの生成
+ */
+int makeBin(byte* bin, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData* blist)
+{
+	int esa;
+	int binInx = 0;
+	int datasize = 0;
+	int dataDest = 0;
+	int seqbase = 0;
+	int dataHead = 0;
+	int dirtbl = 0;;
+	FILE *brr;
+	stBrrListData *blread;
+	byte brrBuf[1024];
+
+	/* ESAを決定します */
+	esa = (core->location + core->size);
+	if(0 != (esa & 0xff))
+	{
+		esa += 0x100;
+		esa &= 0xff00;
+	}
+
+	/* DIRテーブル位置を算出します */
+	dirtbl = (core->dir - core->location +4);
+
+	/* コアデータを書き出します */
+	*(word*)&bin[0] = core->size;
+	*(word*)&bin[2] = core->location;
+	memcpy(&bin[4], core->data, core->size);
+	binInx = core->size + 4;
+
+	/* ESA値を書き換えます */
+	bin[core->esaLoc-core->location+4] = (esa >> 8);
+
+	/* データ書き込み先を決定します */
+	dataDest = esa + (mml->maxEDL * 0x800);
+	if(0 == mml->maxEDL)
+	{
+		dataDest = esa + 4;
+	}
+
+	dataHead = binInx;
+	binInx += 2;
+	*(word*)&bin[binInx] = dataDest;
+	binInx += 2;
+
+	/* BRRデータを書き出します */
+	blread = blist;
+	while(blread != NULL)
+	{
+		int brrsize;
+		word brrLoop;
+		int readLen;
+
+		brr = fopen(blread->fname, "rb");
+		if(brr == NULL)
+		{
+			return false;
+		}
+
+		brrsize = fsize(brr);
+
+		if(0 == brrsize)
+		{
+			fclose(brr);
+			continue;
+		}
+		if( brrsize < 11 || (0 != ((brrsize -2) % 9)) )
+		{
+			puterror("makeBin: BRR file size error (%s).", blread->fname);
+			return 0;
+		}
+		if(0x10000 <= ((brrsize-2)+dataDest))
+		{
+			puterror("makeBin: Insert data size is too big.");
+			return 0;
+		}
+
+		/* BRRループヘッダ読み出し */
+		fread(&brrLoop, sizeof(word), 1, brr);
+		brrLoop += dataDest;
+
+		/* DIRテーブルの書き出し */
+		*(word*)&bin[dirtbl + (blread->brrInx*4)] = dataDest;
+		*(word*)&bin[dirtbl + (blread->brrInx*4) + 2] = brrLoop;
+		/* BRRデータの追加 */
+		while(0 != (readLen = fread(brrBuf, sizeof(byte), 1024, brr)))
+		{
+			memcpy(&bin[binInx], brrBuf, readLen);
+			binInx += readLen;
+			dataDest += readLen;
+			datasize += readLen;
+		}
+
+		fclose(brr);
+		blread = blread->next;
+	}
+
+	/* シーケンスデータを書き出します */
+	seqbase = dataDest;
+	if(0x10000 <= (seq->dataInx+dataDest))
+	{
+		puterror("makeBin: Insert data size is too big.");
+		return 0;
+	}
+	memcpy(&bin[binInx], seq->data, seq->dataInx);
+	binInx += seq->dataInx;
+	datasize += seq->dataInx;
+	*(word*)&bin[core->seqBasePoint-core->location+4] = seqbase;
+
+	/* データサイズを書き込みます */
+	*(word*)&bin[dataHead] = datasize;
+
+	*(word*)&bin[binInx] = 0;
+	binInx += 2;
+	*(word*)&bin[binInx] = core->location;
+	binInx += 2;
+
+	return binInx;
+}
+

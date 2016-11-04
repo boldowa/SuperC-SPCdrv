@@ -18,11 +18,13 @@
 /* オプション関連定義                                       */
 /************************************************************/
 enum{
-	OPT_Debug = 1,
+	OPT_Nolink = 1,
+	OPT_Debug,
 	OPT_Help,
 	OPT_Version,
 };
 static const Option Opt[] = {
+	{OPT_Nolink, "compileonly", 'c', "compile only, not make spc"},
 	{OPT_Debug, "debug", 'd', "verbose debug info"},
 	{OPT_Help, "help", '?', "show usage"},
 	{OPT_Version, "version", 'v', "show version"},
@@ -31,6 +33,7 @@ static const Option Opt[] = {
 
 bool helped = false;
 bool vdebug = false; /* TODO: リリース時はfalseにする */
+bool nolink = false;
 char* in_file_name = NULL;
 char* out_file_name = NULL;
 
@@ -111,6 +114,10 @@ bool parseOption(const int argc, const char **argv)
 				return true;
 			case OPT_Debug:
 				vdebug = true;
+				break;
+			case OPT_Nolink:
+				nolink = true;
+				break;
 			default:
 				break;
 			}
@@ -296,22 +303,43 @@ int main(const int argc, const char** argv)
 		return -1;
 	}
 
-	/* SPCデータを生成します */
-	if(false == makeSPC(spcBuffer, &spcCore, &mml, &binary, brrList))
+	if(false == nolink)
 	{
-		puterror("makeSPC failed.");
-		deleteBrrListData(brrList);
-		mmlclose(&mml);
-		binfree(&binary);
-		fclose(outf);
-		freecore(&spcCore);
-		remove(out_file_name);
-		return -1;
-	}
+		/* SPCデータを生成します */
+		if(false == makeSPC(spcBuffer, &spcCore, &mml, &binary, brrList))
+		{
+			puterror("makeSPC failed.");
+			deleteBrrListData(brrList);
+			mmlclose(&mml);
+			binfree(&binary);
+			fclose(outf);
+			freecore(&spcCore);
+			remove(out_file_name);
+			return -1;
+		}
 
-	/* SPCデータを書き出します */
-	/* fwrite(binary.data, sizeof(byte), binary.dataInx, outf); */
-	fwrite(spcBuffer, sizeof(byte), 0x10200, outf);
+		/* SPCデータを書き出します */
+		/* fwrite(binary.data, sizeof(byte), binary.dataInx, outf); */
+		fwrite(spcBuffer, sizeof(byte), 0x10200, outf);
+	}
+	else
+	{
+		int sz;
+		sz = makeBin(spcBuffer, &spcCore, &mml, &binary, brrList);
+		if(0 == sz)
+		{
+			puterror("makeBin failed.");
+			deleteBrrListData(brrList);
+			mmlclose(&mml);
+			binfree(&binary);
+			fclose(outf);
+			freecore(&spcCore);
+			remove(out_file_name);
+			return -1;
+		}
+
+		fwrite(spcBuffer, sizeof(byte), sz, outf);
+	}
 	fclose(outf);
 
 	/* 終了処理 */
