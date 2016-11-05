@@ -7,10 +7,13 @@
 .section "VelocityTable" free
 
 VelocityTable:
+	/* SuperC Liner Table */
 	.db	$08, $10, $18, $20
 	.db	$28, $30, $38, $40
 	.db	$48, $50, $58, $60
 	.db	$68, $70, $78, $7f
+
+	/* N-SPC SMW */
 	/*
 	.db	$0b, $16, $21, $2c
 	.db	$37, $42, $4d, $58
@@ -24,8 +27,15 @@ VelocityTable:
 .section "GateTable" free
 
 GateTable:
+	/* SuperC Liner Table */
 	.db	$20, $40, $60, $80
 	.db	$a0, $c0, $e0, $ff
+
+	/* N-SPC SMW */
+	/*
+	.db	$33, $66, $80, $99
+	.db	$b3, $cc, $e6, $ff
+	*/
 
 .ends
 

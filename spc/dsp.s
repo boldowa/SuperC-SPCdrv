@@ -217,6 +217,37 @@ _CalcVol:
 
 _Panpot:
 	and	a, #$3f
+	/******************************/
+	/* Pan振動                    */
+	/******************************/
+	mov	$00, a
+	mov	a, track.panVibDepth+x
+	bne	_PanVibration
+	mov	a, $00
+	bra	_NoPanVibration
+_PanVibration:
+	mov	a, track.panVibPhase+x
+	mov	$01, a
+	mov	$02, a
+	and	a, #$c0
+	beq	+
+	cmp	a, #$80
+	beq	+
+	eor	$01, #$3f
++	and	$01, #$3f
+	mov	a, track.panVibDepth+x
+	mov	y, $01
+	mul	ya
+	mov	a, y
+
+	bbc	$02.7, +
+	eor	a, #$ff
+	inc	a
++	adc	a, $00
+	and	a, #$3f
+
+_NoPanVibration:
+	; --- Pan値から左音量を算出
 	cmp	a, #$3f
 	bne	+
 	mov	a, lTemp
@@ -231,6 +262,10 @@ _Panpot:
 	mul	ya
 	mov	a, y
 ++	mov	llvol, a
+	
+
+	; --- 右パンの算出
+_RightPan:
 	mov	a, lTemp
 	setc
 	sbc	a, llvol

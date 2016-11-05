@@ -15,7 +15,7 @@
 .bank 2 slot 2
 .orga __CODE_START__ - 34
 	.db	"VER "
-	.db	$00, $70
+	.db	$00, $71
 	.db	"DIR "
 	.dw	DirTbl
 	.db	"ESA "

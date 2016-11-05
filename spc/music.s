@@ -29,7 +29,6 @@ MusicProcess:
 	mov	x, #0
 
 _TrackLoop
-	call	PhaseIncrease
 	mov	a, track.stepLeft+x
 	beq	_SeqAna
 	dec	a
@@ -63,7 +62,7 @@ _SeqAna:
 	mov	track.seqPointerH+x, a
 
 _Loop:
-	call	trackEffect
+	call	PhaseIncrease
 	inc	x
 	cmp	x, #MUSICTRACKS
 	bne	_TrackLoop
@@ -430,7 +429,7 @@ _ModulationPhase:
 
 _Tremolo:
 	mov	a, track.tremoloDepth+x
-	beq	_End
+	beq	_PanFade
 	mov	a, track.tremoloWaits+x
 	beq	_TremoloPhase
 	dec	a
@@ -441,6 +440,46 @@ _TremoloPhase:
 	clrc
 	adc	a, track.tremoloPhase+x
 	mov	track.tremoloPhase+x, a
+
+_PanFade:
+	; --- パンフェード
+	mov	a, track.panFadeSpan+x
+	beq	_VolumeFade
+	mov	a, track.panFadeDtL+x
+	clrc
+	adc	a, track.panL+x
+	mov	track.panL+x, a
+	mov	a, track.panFadeDtH+x
+	adc	a, track.panH+x
+	mov	track.panH+x, a
+	mov	a, track.panFadeSpan+x
+	dec	a
+	mov	track.panFadeSpan+x, a
+
+_VolumeFade:
+	; --- ボリュームフェード
+	mov	a, track.volumeFadeSpan+x
+	beq	_PanVibration
+	mov	a, track.volumeFadeDtL+x
+	clrc
+	adc	a, track.volumeL+x
+	mov	track.volumeL+x, a
+	mov	a, track.volumeFadeDtH+x
+	adc	a, track.volumeH+x
+	mov	track.volumeH+x, a
+	mov	a, track.volumeFadeSpan+x
+	dec	a
+	mov	track.volumeFadeSpan+x, a
+
+_PanVibration:
+	; --- パン振動
+	mov	a, track.panVibDepth+x
+	beq	_End
+	mov	a, track.panVibRate+x
+	clrc
+	adc	a, track.panVibPhase+x
+	mov	track.panVibPhase+x, a
+
 _End:
 	ret
 
@@ -695,48 +734,6 @@ CmdSetFIR:
 	clrc
 	addw	ya, lSeqPointer
 	movw	lSeqPointer, ya
-	ret
-
-;--------------------------------------------------
-; MusicProcess - TRACK EFFECT PROCESS
-;   Level       : 2 (Main Sub)
-;   Input       : none
-;   Output      : none
-;   Description : トラック毎のtick変化を実行
-;--------------------------------------------------
-trackEffect:
-
-_PanFade:
-	; --- パンフェード
-	mov	a, track.panFadeSpan+x
-	beq	_VolumeFade
-	mov	a, track.panFadeDtL+x
-	clrc
-	adc	a, track.panL+x
-	mov	track.panL+x, a
-	mov	a, track.panFadeDtH+x
-	adc	a, track.panH+x
-	mov	track.panH+x, a
-	mov	a, track.panFadeSpan+x
-	dec	a
-	mov	track.panFadeSpan+x, a
-
-_VolumeFade:
-	; --- ボリュームフェード
-	mov	a, track.volumeFadeSpan+x
-	beq	_endTrackEffect
-	mov	a, track.volumeFadeDtL+x
-	clrc
-	adc	a, track.volumeL+x
-	mov	track.volumeL+x, a
-	mov	a, track.volumeFadeDtH+x
-	adc	a, track.volumeH+x
-	mov	track.volumeH+x, a
-	mov	a, track.volumeFadeSpan+x
-	dec	a
-	mov	track.volumeFadeSpan+x, a
-
-_endTrackEffect:
 	ret
 
 /****************************************/

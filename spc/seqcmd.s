@@ -44,6 +44,8 @@ CmdTable:
 	.dw	CmdTranspose
 	.dw	CmdRelativeTranspose
 	.dw	CmdPanFade
+	.dw	CmdPanVibration
+	.dw	CmdPanVibrationOff
 
 CmdLengthTable:
 	.db	1	; CmdSetInstrument
@@ -72,6 +74,8 @@ CmdLengthTable:
 	.db	1	; CmdTranspose
 	.db	1	; CmdRelativeTranspose
 	.db	2	; CmdPanFade
+	.db	2	; CmdPanVibration
+	.db	0	; CmdPanVibrationOff
 
 ;--------------------------------------------------
 ; Command Include
@@ -93,6 +97,7 @@ CmdLengthTable:
 .include	"CmdGlobalVolumeFade.s"
 .include	"CmdTranspose.s"
 .include	"CmdPanFade.s"
+.include	"CmdPanVibration.s"
 
 .ends
 

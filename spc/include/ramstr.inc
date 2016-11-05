@@ -78,6 +78,9 @@
 	panFadeSpan	dsb	TRACKS
 	panFadeDtL	dsb	TRACKS
 	panFadeDtH	dsb	TRACKS
+	panVibRate	dsb	TRACKS
+	panVibDepth	dsb	TRACKS
+	panVibPhase	dsb	TRACKS
 .endst
 
 ;----------------------------------------
