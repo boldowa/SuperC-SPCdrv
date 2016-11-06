@@ -7,7 +7,7 @@
 #define _MMLCONV_H_
 
 /* define version */
-#define MMLCONV_VERSION "0.70"
+#define MMLCONV_VERSION "0.75"
 
 /* define Option struct */
 typedef struct tag_Option{

@@ -72,6 +72,10 @@ __	mov	SPC_REGADDR, y
 	mov	a, buf_noise
 	mov	SPC_REGADDR, #DSP_NON
 	mov	SPC_REGDATA, a
+	; DSPピッチモジュレーション
+	mov	a, buf_pm
+	mov	SPC_REGADDR, #DSP_PMON
+	mov	SPC_REGDATA, a
 	; キーオン
 	mov	a, buf_keyon
 	mov	SPC_REGADDR, #DSP_KON
@@ -121,6 +125,7 @@ _ChannelLoop:
 +	mov	lTrackInx, a
 	push	x
 	mov	x, a
+	call	LoadTrackBitMemory
 
 	/******************************/
 	/* Pitchを計算する            */
@@ -228,19 +233,20 @@ _Panpot:
 _PanVibration:
 	mov	a, track.panVibPhase+x
 	mov	$01, a
-	mov	$02, a
-	and	a, #$c0
+	mov	a, tmpVolFuncBits
+	and	a, #$30
 	beq	+
-	cmp	a, #$80
+	cmp	a, #$20
 	beq	+
-	eor	$01, #$3f
-+	and	$01, #$3f
+	eor	$01, #$ff
++	lsr	$01
+	lsr	$01
 	mov	a, track.panVibDepth+x
 	mov	y, $01
 	mul	ya
 	mov	a, y
 
-	bbc	$02.7, +
+	bbc	tmpVolFuncBits.5, +
 	eor	a, #$ff
 	inc	a
 +	adc	a, $00
@@ -317,8 +323,8 @@ _Modulation:
 	beq	+
 	cmp	a, #$80
 	beq	+
-	eor	lTemp+1, #$3f
-+	and	lTemp+1, #$3f
+	eor	lTemp, #$3f
++	and	lTemp, #$3f
 	push	x
 	; --- 振動幅を取得する
 	mov	a, track.curKey+x
@@ -332,11 +338,11 @@ _Modulation:
 	mov	$05, a
 	mov	a, track.modulationDepth+x	; moduration
 	mov	y, a
-	mov	a, lTemp+1			; Phase
+	mov	a, lTemp			; Phase
 	mul	ya
 	call	mul16_16
 
-	bbc	lTemp.7, +
+	bbc	lTemp+1.7, +
 	movw	lTemp, ya
 	movw	ya, ZERO
 	subw	ya, lTemp

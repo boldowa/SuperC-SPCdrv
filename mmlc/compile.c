@@ -73,6 +73,10 @@ enum commandlist{
 	CMD_TRANSPOSE,
 	CMD_REL_TRANSPOSE,
 	CMD_PAN_FADE,
+	CMD_PAN_VIBRATION,
+	CMD_PAN_VIBRATION_OFF,
+	CMD_HARDPM_ON,
+	CMD_HARDPM_OFF,
 };
 
 /**
@@ -1916,6 +1920,33 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						break;
 
 					/******************************************/
+					/* H/W ピッチモジュレーション有無効切替   */
+					/******************************************/
+					case 'm':
+						{
+							int nums;
+							mmlgetforward(mml);
+							nums = getNumbers(mml, false, tempVal, compileErrList);
+							if(1 < nums)
+							{
+								newError(mml, compileErr, compileErrList);
+								compileErr->type = SyntaxError;
+								compileErr->level = ERR_ERROR;
+								sprintf(compileErr->message, "Invalid pmon specify.");
+								addError(compileErr, compileErrList);
+								continue;
+							}
+							if(1 == nums && tempVal[0] == 0)
+							{
+								putSeq(&tracks, CMD_HARDPM_OFF, loopDepth, mml, compileErr);
+								break;
+							}
+							putSeq(&tracks, CMD_HARDPM_ON, loopDepth, mml, compileErr);
+						}
+						break;
+
+
+					/******************************************/
 					/* ポルタメント有無効切替                 */
 					/******************************************/
 					case 'p':
@@ -2280,8 +2311,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 
 					if(nums == 1)
 					{
-						/* サラウンド */
 						byte pan = tempVal[0];
+						/* サラウンド */
 						if(true == tracks.lvolRev[tracks.curTrack])
 						{
 							pan |= 0x80;
@@ -2303,6 +2334,56 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					putSeq(&tracks, (tempVal[1]&0x3f), loopDepth, mml, compileErr);
 					break;
 				}
+
+			/******************************************/
+			/* パン振動                               */
+			/******************************************/
+			case 'P':
+				{
+					int nums;
+					/* ログ出力 */
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = ErrorNone;
+					compileErr->level = ERR_DEBUG;
+					sprintf(compileErr->message, "Panpot vibration");
+					addError(compileErr, compileErrList);
+					
+					nums = getNumbers(mml, false, tempVal, compileErrList);
+					if(1 > nums || 2 < nums)
+					{
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "Invalid panpot vibration specifyed.");
+						addError(compileErr, compileErrList);
+						continue;
+					}
+
+					if(nums == 1)
+					{
+						if(0 != tempVal[0])
+						{
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_ERROR;
+							sprintf(compileErr->message, "Invalid panpot vibration specifyed.");
+							addError(compileErr, compileErrList);
+							continue;
+						}
+
+						/* パンコマンド挿入 */
+						putSeq(&tracks, CMD_PAN_VIBRATION_OFF, loopDepth, mml, compileErr);
+						break;
+					}
+
+					/* パン振動コマンド挿入 */
+					putSeq(&tracks, CMD_PAN_VIBRATION, loopDepth, mml, compileErr);
+					putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
+					putSeq(&tracks, tempVal[1], loopDepth, mml, compileErr);
+					break;
+				}
+
+
 
 			/******************************************/
 			/* 音量                                   */

@@ -18,6 +18,7 @@ SoundEffectProcess:
 	mov	x, #MUSICTRACKS
 
 _TrackLoop
+	call	LoadTrackBitMemory		; bit単位で管理するメモリをdpに読み出す
 	mov	a, track.stepLeft+x
 	beq	_SeqAna
 	dec	a
@@ -30,7 +31,7 @@ _TrackLoop
 	call	RRApply
 	bra	_Loop
 _Release:
-	mov	a, track.bitFlags+x
+	mov	a, tmpTrackSysBits
 	and	a, #(TRKFLG_TIE | TRKFLG_PORTAM)
 	bne	_Loop
 	call	ReleaseChannel
@@ -51,6 +52,13 @@ _SeqAna:
 	mov	track.seqPointerH+x, a
 
 _Loop:
+	; --- フェーズ処理
+	call	PhaseIncrease
+
+	; --- ビット情報のリストア
+	call	StoreTrackBitMemory		; bit単位で管理するメモリをdpからメモリに書き込む
+
+	; --- 次トラック解析ループ
 	inc	x
 	cmp	x, #TRACKS
 	bne	_TrackLoop

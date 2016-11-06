@@ -76,6 +76,10 @@
 	seqBaseAddress			dw	; シーケンスデータのベースアドレス(データ開始位置)
 	drumToneTablePtr		dw	; ドラムセット位置、通常はシーケンスアドレス+(トラック数*2)
 	exToneTablePtr			dw	; 曲に付随するトーンテーブル、通常はシーケンスアドレス+(トラック数*2)+(ドラム音色構造体サイズ*7)
+	tmpTrackSysBits			db	;\  それぞれtmpを除いた同名の名前のトラックメモリの一時作業メモリ
+	tmpVolFuncBits			db	; | メモリ詳細は、"ramstr.inc"を参照。
+	tmpPitchFuncBits		db	;/
+
 ;----------------------------------------
 ; DSPメモリ更新バッファ
 ;----------------------------------------
@@ -85,6 +89,7 @@
 	buf_noise	db
 	buf_keyon	db
 	buf_keyoff	db
+	buf_pm		db
 
 ;----------------------------------------
 ; Page0識別末端

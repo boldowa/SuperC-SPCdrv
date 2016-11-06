@@ -6,15 +6,11 @@
 
 
 CmdEchoOff:
-	mov	a, #(TRKFLG_ECHO ~ $ff)
-	and	a, track.bitFlags+x
-	mov	track.bitFlags+x, a
+	clr1	tmpTrackSysBits.6
 	ret
 
 CmdEchoOn:
-	mov	a, #TRKFLG_ECHO
-	or	a, track.bitFlags+x
-	mov	track.bitFlags+x, a
+	set1	tmpTrackSysBits.6
 	ret
 
 CmdEchoParam:

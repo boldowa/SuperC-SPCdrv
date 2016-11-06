@@ -31,12 +31,27 @@
 .struct stTrack
 	seqPointerL	dsb	TRACKS
 	seqPointerH	dsb	TRACKS
-	bitFlags	dsb	TRACKS
-	; bit0   - is next note tie
-	; bit1~4 - not use
-	; bit5   - noise
-	; bit6   - echo
-	; bit7   - portament
+	trackSysBits	dsb	TRACKS
+	; bit0     - is next note tie
+	; bit1~3   - not use
+	; bit4     - H/W modulation
+	; bit5     - noise
+	; bit6     - echo
+	; bit7     - portament
+
+	volFuncBits	dsb	TRACKS
+	; bit0-3 : Tremolo bits
+	;   bit0~1 - TremoloPhase bit9,bit10
+	;   bit2~3 - none
+	; bit4-7 : PanVibration bits
+	;   bit4~5 - PanVibrationPhase bit9,bit10
+	;   bit6~7 - none
+
+	pitchFuncBits	dsb	TRACKS
+	; bit0-3 : PitchModulaion bits
+	;   bit0~1 - PitchModulationPhase bit9,bit10
+	;   bit2~3 - none
+	; bit4-7 : none
 
 	brrInx		dsb	TRACKS		; 負数のときはノイズ
 	pitchRatio	dsb	TRACKS

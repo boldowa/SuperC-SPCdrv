@@ -6,14 +6,10 @@
 
 
 CmdPortamentoOn:
-	mov	a, #TRKFLG_PORTAM
-	or	a, track.bitFlags+x
-	mov	track.bitFlags+x, a
+	set1	tmpTrackSysBits.7
 	ret
 
 CmdPortamentoOff:
-	mov	a, #(TRKFLG_PORTAM ~ $ff)
-	and	a, track.bitFlags+x
-	mov	track.bitFlags+x, a
+	clr1	tmpTrackSysBits.7
 	ret
 

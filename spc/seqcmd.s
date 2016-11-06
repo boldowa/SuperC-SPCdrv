@@ -46,6 +46,8 @@ CmdTable:
 	.dw	CmdPanFade
 	.dw	CmdPanVibration
 	.dw	CmdPanVibrationOff
+	.dw	CmdHWPitchModulationOn
+	.dw	CmdHWPitchModulationOff
 
 CmdLengthTable:
 	.db	1	; CmdSetInstrument
@@ -76,6 +78,8 @@ CmdLengthTable:
 	.db	2	; CmdPanFade
 	.db	2	; CmdPanVibration
 	.db	0	; CmdPanVibrationOff
+	.db	0	; CmdHWPitchModulationOn
+	.db	0	; CmdHWPitchModulationOff
 
 ;--------------------------------------------------
 ; Command Include
@@ -98,6 +102,7 @@ CmdLengthTable:
 .include	"CmdTranspose.s"
 .include	"CmdPanFade.s"
 .include	"CmdPanVibration.s"
+.include	"CmdHWPitchModulation.s"
 
 .ends
 

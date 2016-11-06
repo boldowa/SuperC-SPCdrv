@@ -54,18 +54,14 @@ _Noise:
 	or	a, tmpFlg
 	mov	SPC_REGDATA, a
 	;--- set track noise flag
-	mov	a, #TRKFLG_NOISE
-	or	a, track.bitFlags+x
-	mov	track.bitFlags+x, a
+	set1	tmpTrackSysBits.5	; bit5: noise
 	;--- BRR num = 0
 	mov	a, y
 	bra	+
 
 _NoNoise:
 	;--- clear noise flag
-	mov	a, #($ff ~ TRKFLG_NOISE)
-	and	a, track.bitFlags+x
-	mov	track.bitFlags+x, a
+	clr1	tmpTrackSysBits.5
 
 	;--- read tone settings
 	mov	a, [toneTblPtr]+y

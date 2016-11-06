@@ -43,6 +43,7 @@ CmdPanFade:
 	bcs	+
 	eor	a, #$ff
 +	mov	track.panFadeDtH+x, a
+	and	tmpVolFuncBits, #$0f
 	jmp	CmdPanShare
 
 

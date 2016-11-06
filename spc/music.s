@@ -29,6 +29,7 @@ MusicProcess:
 	mov	x, #0
 
 _TrackLoop
+	call	LoadTrackBitMemory		; bit単位で管理するメモリをdpに読み出す
 	mov	a, track.stepLeft+x
 	beq	_SeqAna
 	dec	a
@@ -41,7 +42,7 @@ _TrackLoop
 	call	RRApply
 	bra	_Loop
 _Release:
-	mov	a, track.bitFlags+x
+	mov	a, tmpTrackSysBits
 	and	a, #(TRKFLG_TIE | TRKFLG_PORTAM)
 	bne	_Loop
 	call	ReleaseChannel
@@ -62,11 +63,18 @@ _SeqAna:
 	mov	track.seqPointerH+x, a
 
 _Loop:
+	; --- フェーズ処理
 	call	PhaseIncrease
+
+	; --- ビット情報のリストア
+	call	StoreTrackBitMemory		; bit単位で管理するメモリをdpからメモリに書き込む
+
+	; --- 次トラック解析ループ
 	inc	x
 	cmp	x, #MUSICTRACKS
 	bne	_TrackLoop
 
+	/* 全CH共通処理 */
 _GlobalVolumeFade:
 	mov	a, mgvolFadeSpan
 	beq	_TempoFade
@@ -129,9 +137,19 @@ ReleaseChannel:
 	or	a, buf_keyoff		; |
 	mov	buf_keyoff, a		;/
 	pop	a
+
 	eor	a, #$ff
+	mov	x, a
 	and	a, buf_echo
 	mov	buf_echo, a
+
+	mov	a, x
+	and	a, buf_noise
+	mov	buf_noise, a
+
+	mov	a, x
+	and	a, buf_pm
+	mov	buf_pm, a
 _RetChAlloc:
 	mov	a, y			;\ 解析中Trackインデックスを復元
 	mov	x, a			;/
@@ -194,7 +212,7 @@ _NormalNote:
 	mov	a, y
 	mov	track.releaseTiming+x, a
 
-	mov	a, track.bitFlags+x
+	mov	a, tmpTrackSysBits
 	and	a, #(TRKFLG_TIE | TRKFLG_PORTAM)
 	mov	$04, a
 	beq	+
@@ -213,9 +231,6 @@ _NormalNote:
 
 	push	x
 	mov	x, a
-	mov	a, !track.bitFlags+y
-	asl	a
-	mov	$00, a
 	; --- keyon
 	mov	a, !ChBitTable+x
 	mov	$01, a
@@ -226,8 +241,7 @@ _NormalNote:
 	mov	a, $01
 	eor	a, #$ff
 	and	a, buf_echo
-	asl	$00
-	bcc	+
+	bbc	tmpTrackSysBits.6, +	; bit6: エコー有無効
 	or	a, $01
 +	mov	buf_echo, a
 
@@ -235,10 +249,17 @@ _NormalNote:
 	mov	a, $01
 	eor	a, #$ff
 	and	a, buf_noise
-	asl	$00
-	bcc	+
+	bbc	tmpTrackSysBits.5, +	; bit5: ノイズ有無効
 	or	a, $01
 +	mov	buf_noise, a
+
+	; --- pitch moduration
+	mov	a, $01
+	eor	a, #$ff
+	and	a, buf_pm
+	bbc	tmpTrackSysBits.4, +	; bit4: ピッチモジュレーション
+	or	a, $01
++	mov	buf_pm, a
 	pop	x
 
 	; --- lfo reset
@@ -426,6 +447,13 @@ _ModulationPhase:
 	clrc
 	adc	a, track.modulationPhase+x
 	mov	track.modulationPhase+x, a
+	bcc	_Tremolo
+	mov	a, tmpPitchFuncBits
+	inc	a
+	and	a, #3
+	and	tmpPitchFuncBits, #$fc
+	or	a, tmpPitchFuncBits
+	mov	tmpPitchFuncBits, a
 
 _Tremolo:
 	mov	a, track.tremoloDepth+x
@@ -434,12 +462,19 @@ _Tremolo:
 	beq	_TremoloPhase
 	dec	a
 	mov	track.tremoloWaits+x, a
-	bra	_End
+	bra	_PanFade
 _TremoloPhase:
 	mov	a, track.tremoloRate+x
 	clrc
 	adc	a, track.tremoloPhase+x
 	mov	track.tremoloPhase+x, a
+	bcc	_PanFade
+	mov	a, tmpVolFuncBits
+	inc	a
+	and	a, #3
+	and	tmpVolFuncBits, #$fc
+	or	a, tmpVolFuncBits
+	mov	tmpVolFuncBits, a
 
 _PanFade:
 	; --- パンフェード
@@ -479,8 +514,42 @@ _PanVibration:
 	clrc
 	adc	a, track.panVibPhase+x
 	mov	track.panVibPhase+x, a
+	bcc	_End
+	mov	a, tmpVolFuncBits
+	xcn	a
+	inc	a
+	and	a, #3
+	xcn	a
+	and	tmpVolFuncBits, #$cf
+	or	a, tmpVolFuncBits
+	mov	tmpVolFuncBits, a
 
 _End:
+	ret
+
+
+/**************************************************/
+/* ビット単位で管理するメモリの読み出し           */
+/**************************************************/
+LoadTrackBitMemory:
+	mov	a, track.trackSysBits+x
+	mov	tmpTrackSysBits, a
+	mov	a, track.volFuncBits+x
+	mov	tmpVolFuncBits, a
+	mov	a, track.pitchFuncBits+x
+	mov	tmpPitchFuncBits, a
+	ret
+
+/**************************************************/
+/* ビット単位で管理するメモリの保存               */
+/**************************************************/
+StoreTrackBitMemory:
+	mov	a, tmpTrackSysBits
+	mov	track.trackSysBits+x, a
+	mov	a, tmpVolFuncBits
+	mov	track.volFuncBits+x, a
+	mov	a, tmpPitchFuncBits
+	mov	track.pitchFuncBits+x, a
 	ret
 
 ;--------------------------------------------------
@@ -613,17 +682,14 @@ _NotTie:
 	pop	x
 	cmp	a, #REST			; 次が休符の場合は音を止めます
 	beq	++
-	mov	a, track.bitFlags+x
-	and	a, #TRKFLG_PORTAM
-	beq	++
+	bbc	tmpTrackSysBits.7, ++		; bit7: Portament
 	mov	a, $03
 	bne	+
 	mov	a, track.step+x
 +	clrc
 	adc	a, track.releaseTiming+x
 	mov	track.releaseTiming+x, a
-++	mov	a, track.bitFlags+x
-	and	a, #(TRKFLG_TIE ~ $ff)
+++	clr1	tmpTrackSysBits.0
 	bra	_Join
 _Tie:
 	pop	x
@@ -639,11 +705,8 @@ _Tie:
 	clrc
 	adc	a, $02
 	mov	track.releaseTiming+x, a
-+	mov	a, track.bitFlags+x
-	or	a, #TRKFLG_TIE
++	set1	tmpTrackSysBits.0
 _Join:
-	mov	track.bitFlags+x, a
-
 	movw	ya, $00
 	movw	lSeqPointer, ya
 	ret
@@ -807,7 +870,9 @@ InitSequenceData:
 	mov	y, a
 	mov	x, a
 -	mov	a, #0
-	mov	track.bitFlags+x, a
+	mov	track.trackSysBits+x, a
+	mov	track.volFuncBits+x, a
+	mov	track.pitchFuncBits+x, a
 	mov	track.modulationDepth+x, a
 	mov	track.tremoloDepth+x, a
 	mov	track.pitchBendSpan+x, a
