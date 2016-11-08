@@ -17,6 +17,7 @@ CmdPitchBend:
 	mov	track.pitchBendSpan+x, a
 	call	readSeq
 	mov	track.pitchBendDiff+x, a
+PitchEnvShare:
 	mov	y, a
 	bpl	+
 	eor	a, #$ff

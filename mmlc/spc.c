@@ -294,6 +294,7 @@ bool makeSPC(byte* spc, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData
 		puterror("makeSPC: Insert data size is too big.");
 		return false;
 	}
+	putdebug("seqStart: 0x%x", aramWritePtr);
 	*(word*)&spc[0x100 + core->seqBasePoint] = aramWritePtr;
 	memcpy(&spc[0x100 + aramWritePtr], seq->data, seq->dataInx);
 

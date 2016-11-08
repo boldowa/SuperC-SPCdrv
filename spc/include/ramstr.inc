@@ -96,6 +96,9 @@
 	panVibRate	dsb	TRACKS
 	panVibDepth	dsb	TRACKS
 	panVibPhase	dsb	TRACKS
+	pitchEnvDelay	dsb	TRACKS
+	pitchEnvSpan	dsb	TRACKS
+	pitchEnvDiff	dsb	TRACKS
 .endst
 
 ;----------------------------------------
@@ -119,6 +122,7 @@
 	adr		db		; Attack and Decay rate
 	sr		db		; Sustain rate
 	rr		db		; Release rate
+	gateAndVelocity	db		; ゲートタイム・ベロシティ
 	panpot		db		; ドラムのパンポット
 	note		db		; 鳴らす音階値
 .endst

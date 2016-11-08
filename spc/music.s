@@ -170,23 +170,7 @@ _RetChAlloc:
 	bmi	_NoteOrCommand		; 負数である場合は、ノートかコマンド
 
 	; Velocity and Gate指定
-	push	x
-
-	push	a
-	and	a, #$0f
-	mov	x, a
-	mov	a, !VelocityTable+x
-	mov	$00, a
-	pop	a
-	xcn	a
-	and	a, #$07
-	mov	x, a
-	mov	a, !GateTable+x
-
-	pop	x
-	mov	track.gate+x, a
-	mov	a, $00
-	mov	track.velocity+x, a
+	call	setVelocityAndGate
 
 	call	readSeq			; シーケンスを1バイト読みます
 	mov	y, a
@@ -201,6 +185,24 @@ _NoteOrCommand:
 	; 普通のNote($80 ~ $c7)
 _NormalNote:
 	and	a, #$7f
+	mov	y, a
+	mov	a, track.pitchEnvDiff+x
+	bne	+
+	mov	a, y
+	bra	_KeyStore
+
+	; --- Pitch Envelope
++	eor	a, #$ff
+	inc	a
+	mov	track.pitchBendDiff+x, a
+	mov	a, track.pitchEnvDelay+x
+	mov	track.pitchBendDelay+x, a
+	mov	a, track.pitchEnvSpan+x
+	mov	track.pitchBendSpan+x, a
+	mov	a, y
+	clrc
+	adc	a, track.pitchEnvDiff+x
+_KeyStore:
 	mov	track.curKey+x, a
 	mov	a, track.step+x
 	dec	a
@@ -324,6 +326,9 @@ _JudgeDrum:
 	call	GetToneCfg		; 音色を切り替える
 	inc	y
 	mov	a, [$01]+y
+	call	setVelocityAndGate
+	inc	y
+	mov	a, [$01]+y
 	mov	track.panH+x, a
 	inc	y
 	mov	a, [$01]+y
@@ -376,6 +381,27 @@ _RRReturn:
 	mov	x, a			;/
 	ret
 	
+/**************************************************/
+/* Velocity / Gate メモリセット                   */
+/**************************************************/
+setVelocityAndGate:
+	push	y
+	push	a
+	; --- ベロシティ値のセット
+	and	a, #$0f
+	mov	y, a
+	mov	a, !VelocityTable+y
+	mov	track.velocity+x, a
+	; --- ゲートタイムのセット
+	pop	a
+	xcn	a
+	and	a, #$07
+	mov	y, a
+	mov	a, !GateTable+y
+	mov	track.gate+x, a
+
+	pop	y
+	ret
 
 /****************************************
  *

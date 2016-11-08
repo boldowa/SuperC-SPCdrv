@@ -21,7 +21,7 @@
 #define BRRINX_START 32
 
 /* ドラム定義テーブル長 */
-#define DRUMTABLE_LEN 8
+#define DRUMTABLE_LEN 9
 
 /* 変換系関数用のテンポラリバッファ長 */
 #define TMP_BUFFER_SIZE 32
@@ -84,6 +84,12 @@ enum commandlist{
  */
 static const byte SCALE_TABLE[] = {9, 11, 0, 2, 4, 5, 7};
 static const byte DRUM_TABLE[] = {6, 7, 0, 1, 2, 3, 4};
+
+/**
+ * 異常状態フラグ
+ * (異常構文出現時のエラーメッセージの抑制の為に使います)
+ */
+bool isAbnormalState = false;
 
 /* トラックデータ */
 typedef struct stTrack
@@ -189,6 +195,10 @@ typedef struct {
 	else\
 	{\
 		erroradd(err, list);\
+	}\
+	if(ERR_ERROR <= err->level)\
+	{\
+		isAbnormalState = true;\
 	}\
 
 /**
@@ -950,6 +960,11 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 	Track toneTable;
 
 	/**
+	 * 音色トランスポーズ
+	 */
+	Track toneTranspose;
+
+	/**
 	 * ドラムトーンテーブル
 	 */
 	byte drumTable[DRUMTABLE_LEN*DRUM_NOTE_NUMS];
@@ -994,6 +1009,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 	/* 音色テーブルの初期化 */
 	memset(&toneTable, 0, sizeof(Track));
 	memset(drumTable, 0, DRUMTABLE_LEN*DRUM_NOTE_NUMS);
+	memset(&toneTranspose, 0, sizeof(Track));
 
 	while(mml->iseof == false)
 	{
@@ -1090,6 +1106,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					continue;
 				}
 				*/
+				isAbnormalState = false;
 				break;
 
 			/******************************************/
@@ -1246,6 +1263,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						tracks.lastticks[tracks.curTrack] = tracks.ticks[tracks.curTrack];
 						putSeq(&tracks, TIE, loopDepth, mml, compileErr);
 					}
+				isAbnormalState = false;
 				break;
 				}
 
@@ -1275,6 +1293,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
 				putSeq(&tracks, tempVal[1], loopDepth, mml, compileErr);
 				putSeq(&tracks, tempVal[2], loopDepth, mml, compileErr);
+				isAbnormalState = false;
 				break;
 
 			/******************************************/
@@ -1301,6 +1320,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				/* トランスポーズコマンド挿入 */
 				putSeq(&tracks, CMD_TRANSPOSE, loopDepth, mml, compileErr);
 				putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
+				isAbnormalState = false;
 				break;
 
 			/******************************************/
@@ -1339,6 +1359,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
 				putSeq(&tracks, tempVal[1], loopDepth, mml, compileErr);
 				putSeq(&tracks, tempVal[2], loopDepth, mml, compileErr);
+				isAbnormalState = false;
 				break;
 			}
 
@@ -1369,6 +1390,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					int i;
 					for(i=0; i<8; i++){ putSeq(&tracks, tempVal[i], loopDepth, mml, compileErr); }
 				}
+				isAbnormalState = false;
 				break;
 
 			/******************************************/
@@ -1431,6 +1453,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					compileErr->level = ERR_DEBUG;
 					sprintf(compileErr->message, "Track Change => %d (TODO: Implement)", tempVal[0]);
 					addError(compileErr, compileErrList);
+
+					isAbnormalState = false;
 				} /* endif Track */
 				/* 分解能指定 */
 				else if(mmlCmpStr(mml, "timebase") == true)
@@ -1484,6 +1508,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					compileErr->level = ERR_DEBUG;
 					sprintf(compileErr->message, "Timebase Change => %d", tempVal[0]);
 					addError(compileErr, compileErrList);
+
+					isAbnormalState = false;
 				} /* endif Timebase */
 				else if(mmlCmpStr(mml, "swap<>") == true)
 				{
@@ -1495,10 +1521,12 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					compileErr->level = ERR_DEBUG;
 					sprintf(compileErr->message, "Octave swap => '%c' is Up", octaveSwap ? '<' : '>');
 					addError(compileErr, compileErrList);
+
+					isAbnormalState = false;
 				} /* endif swap<> */
 				else if( (true == mmlCmpStr(mml, "tone")) || (true == (isDrum = mmlCmpStr(mml, "drum"))) )
 				{
-					int validNums = 9;
+					int validNums = 10;
 					int nums = 0;
 					int* arg = tempVal;
 					bool isFile = false;
@@ -1511,7 +1539,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 
 					if(true == isDrum)
 					{
-						validNums += 2;
+						validNums += 4;
 
 						if( (DRUMTABLE_LEN*DRUM_NOTE_NUMS) <= drumTableCtr)
 						{
@@ -1628,7 +1656,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 
 					/* 引数取得 */
 					nums = getNumbers(mml, true, tempVal, compileErrList);
-					if(4>nums)
+					if(5>nums)
 					{
 						/* 引数の数がヘン、文法エラー */
 						newError(mml, compileErr, compileErrList);
@@ -1659,7 +1687,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					}
 
 					/* GAINモードの時は1つ引数が少ない */
-					if(0 == arg[2])
+					if(0 == arg[3])
 					{
 						validNums--;
 					}
@@ -1681,48 +1709,59 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						continue;
 					}
 
+					if(false == isDrum)
+					{
+						toneTranspose.data[toneTranspose.ptr++] = arg[1];
+					}
+
 					/* ADSRモード */
-					if(arg[2] != 0)
+					if(arg[3] != 0)
 					{
 						byte adr, sr, rr, tmp;
+						byte qv;
 
 						/* Decay */
-						adr = arg[4];
+						adr = arg[5];
 						adr <<= 4;
 						/* Attack */
-						tmp = (arg[3] & 0xf);
+						tmp = (arg[4] & 0xf);
 						adr |= tmp;
 						adr |= 0x80;
 						/* Sustain Level */
-						sr = arg[5];
+						sr = arg[6];
 						sr <<= 5;
 						rr = sr;
 						/* Sustain Rate */
-						tmp = (arg[6] & 0x1f);
+						tmp = (arg[7] & 0x1f);
 						sr |= tmp;
 						/* Release Rate */
-						tmp = (arg[7] & 0x1f);
+						tmp = (arg[8] & 0x1f);
 						rr |= tmp;
 
 						if(false == isDrum)
 						{
 							toneTable.data[toneTable.ptr++] = localBrrInx;	/* 波形番号 */
 							toneTable.data[toneTable.ptr++] = arg[0];	/* ピッチ倍率 */
-							toneTable.data[toneTable.ptr++] = arg[1];	/* デチューン */
+							toneTable.data[toneTable.ptr++] = arg[2];	/* デチューン */
 							toneTable.data[toneTable.ptr++] = adr;		/* ADR */
 							toneTable.data[toneTable.ptr++] = sr;		/* SR */
 							toneTable.data[toneTable.ptr++] = rr;		/* RR */
+							isAbnormalState = false;
 							break;
 						}
 
+						qv =  ( ((arg[9]-1)&0x7) << 4);
+						qv |= ((arg[10] - 1) & 0xf);
 						drumTable[drumTableCtr++] = localBrrInx;	/* 波形番号 */
 						drumTable[drumTableCtr++] = arg[0];		/* ピッチ倍率 */
-						drumTable[drumTableCtr++] = arg[1];		/* デチューン */
+						drumTable[drumTableCtr++] = arg[2];		/* デチューン */
 						drumTable[drumTableCtr++] = adr;		/* ADR */
 						drumTable[drumTableCtr++] = sr;			/* SR */
 						drumTable[drumTableCtr++] = rr;			/* RR */
-						drumTable[drumTableCtr++] = arg[8];		/* パンポット */
-						drumTable[drumTableCtr++] = arg[9];		/* 音階値 */
+						drumTable[drumTableCtr++] = qv;			/* ゲートタイム・ベロシティ */
+						drumTable[drumTableCtr++] = arg[11];		/* パンポット */
+						drumTable[drumTableCtr++] = arg[12];		/* 音階値 */
+						isAbnormalState = false;
 						break;
 					}
 
@@ -1730,10 +1769,12 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					{
 						byte gmode1, gmode2, gv1, gv2;
 						byte gain1, gain2;
-						gmode1 = arg[3];
-						gv1 = arg[4];
-						gmode2 = arg[5];
-						gv2 = arg[6];
+						gmode1 = arg[4];
+						gv1 = arg[5];
+						gmode2 = arg[6];
+						gv2 = arg[7];
+						byte qv;
+
 						/* 発音時のGAIN */
 						switch(gmode1)
 						{
@@ -1777,20 +1818,25 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						{
 							toneTable.data[toneTable.ptr++] = localBrrInx;	/* 波形番号 */
 							toneTable.data[toneTable.ptr++] = arg[0];	/* ピッチ倍率 */
-							toneTable.data[toneTable.ptr++] = arg[1];	/* デチューン */
+							toneTable.data[toneTable.ptr++] = arg[2];	/* デチューン */
 							toneTable.data[toneTable.ptr++] = 0;		/* ADR */
 							toneTable.data[toneTable.ptr++] = gain1;	/* GAIN1 */
 							toneTable.data[toneTable.ptr++] = gain2;	/* GAIN2 */
+							isAbnormalState = false;
 							break;
 						}
+						qv =  ( ((arg[8]-1)&0x7) << 4);
+						qv |= ((arg[9] - 1) & 0xf);
 						drumTable[drumTableCtr++] = localBrrInx;	/* 波形番号 */
 						drumTable[drumTableCtr++] = arg[0];		/* ピッチ倍率 */
-						drumTable[drumTableCtr++] = arg[1];		/* デチューン */
+						drumTable[drumTableCtr++] = arg[2];		/* デチューン */
 						drumTable[drumTableCtr++] = 0;			/* ADR */
 						drumTable[drumTableCtr++] = gain1;		/* GAIN1 */
 						drumTable[drumTableCtr++] = gain2;		/* GAIN2 */
-						drumTable[drumTableCtr++] = arg[8];		/* パンポット */
-						drumTable[drumTableCtr++] = arg[9];		/* 音階値 */
+						drumTable[drumTableCtr++] = qv;			/* ゲートタイム・ベロシティ */
+						drumTable[drumTableCtr++] = arg[10];		/* パンポット */
+						drumTable[drumTableCtr++] = arg[11];		/* 音階値 */
+						isAbnormalState = false;
 						break;
 					}
 				} /* endif tone / drum */
@@ -1821,6 +1867,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					addError(compileErr, compileErrList);
 					continue;
 				}
+				isAbnormalState = false;
 				break;
 			}
 
@@ -1847,6 +1894,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						}
 						tracks.lvolRev[tracks.curTrack] = tempVal[0];
 						tracks.rvolRev[tracks.curTrack] = tempVal[1];
+						isAbnormalState = false;
 						break;
 
 					/******************************************/
@@ -1864,6 +1912,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							continue;
 						}
 						tracks.transpose[tracks.curTrack] = tempVal[0];
+						isAbnormalState = false;
 						break;
 
 					/******************************************/
@@ -1891,6 +1940,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						/* トランスポーズコマンド挿入 */
 						putSeq(&tracks, CMD_REL_TRANSPOSE, loopDepth, mml, compileErr);
 						putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
+						isAbnormalState = false;
 						break;
 
 					/******************************************/
@@ -1913,10 +1963,12 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							if(1 == nums && tempVal[0] == 0)
 							{
 								putSeq(&tracks, CMD_ECHO_OFF, loopDepth, mml, compileErr);
+								isAbnormalState = false;
 								break;
 							}
 							putSeq(&tracks, CMD_ECHO_ON, loopDepth, mml, compileErr);
 						}
+						isAbnormalState = false;
 						break;
 
 					/******************************************/
@@ -1939,10 +1991,12 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							if(1 == nums && tempVal[0] == 0)
 							{
 								putSeq(&tracks, CMD_HARDPM_OFF, loopDepth, mml, compileErr);
+								isAbnormalState = false;
 								break;
 							}
 							putSeq(&tracks, CMD_HARDPM_ON, loopDepth, mml, compileErr);
 						}
+						isAbnormalState = false;
 						break;
 
 
@@ -1966,10 +2020,12 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							if(1 == nums && tempVal[0] == 0)
 							{
 								putSeq(&tracks, CMD_PORTAM_OFF, loopDepth, mml, compileErr);
+								isAbnormalState = false;
 								break;
 							}
 							putSeq(&tracks, CMD_PORTAM_ON, loopDepth, mml, compileErr);
 						}
+						isAbnormalState = false;
 						break;
 
 					/******************************************/
@@ -1992,10 +2048,12 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							if(1 == nums && tempVal[0] == 0)
 							{
 								tracks.drumPart[tracks.curTrack] = false;
+								isAbnormalState = false;
 								break;
 							}
 							tracks.drumPart[tracks.curTrack] = true;
 						}
+						isAbnormalState = false;
 						break;
 
 					/******************************************/
@@ -2016,6 +2074,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							{
 								/* トレモロOFFコマンド挿入 */
 								putSeq(&tracks, CMD_TREMOLO_OFF, loopDepth, mml, compileErr);
+								isAbnormalState = false;
 								break;
 							}
 							if(2 > nums || 3 < nums)
@@ -2037,6 +2096,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							putSeq(&tracks, delay, loopDepth, mml, compileErr);
 							putSeq(&tracks, tempVal[baseptr], loopDepth, mml, compileErr);
 							putSeq(&tracks, tempVal[baseptr+1], loopDepth, mml, compileErr);
+							isAbnormalState = false;
 							break;
 						}
 
@@ -2067,6 +2127,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 
 						isLineComment = true;
 						mmlgetforward(mml);
+						isAbnormalState = false;
 						break;
 
 					case '*':  /* 複数行コメント */
@@ -2079,6 +2140,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 
 						isMutiLineComment = true;
 						mmlgetforward(mml);
+						isAbnormalState = false;
 						break;
 
 					default:  /* ループポイント */
@@ -2115,6 +2177,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						/* gatetime値をリセットする   */
 						tracks.lastGatetime[tracks.curTrack] = -1;
 
+						isAbnormalState = false;
 						break;
 				}
 				break;
@@ -2141,6 +2204,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				}
 				
 				tracks.curOctave[tracks.curTrack] = tempVal[0];
+				isAbnormalState = false;
 				break;
 
 			/******************************************/
@@ -2162,6 +2226,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				{
 					tracks.curOctave[tracks.curTrack]--;
 				}
+				isAbnormalState = false;
 				break;
 			/******************************************/
 			case '>':
@@ -2180,6 +2245,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				{
 					tracks.curOctave[tracks.curTrack]++;
 				}
+				isAbnormalState = false;
 				break;
 
 			/******************************************/
@@ -2243,12 +2309,14 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							continue;
 						}
 						tone = tempVal[0] + EXTONE_START;
+						tracks.transpose[tracks.curTrack] = toneTranspose.data[tempVal[0]];
 						break;
 				}
 
 				/* コマンド配置 */
 				putSeq(&tracks, CMD_SET_INST, loopDepth, mml, compileErr);
 				putSeq(&tracks, tone, loopDepth, mml, compileErr);
+				isAbnormalState = false;
 				break;
 			}
 
@@ -2283,6 +2351,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				}
 				tracks.gatetime[tracks.curTrack] = tempVal[0] - 1;
 				tracks.lastGatetime[tracks.curTrack] = -1;
+				isAbnormalState = false;
 				break;
 
 			/******************************************/
@@ -2325,6 +2394,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						/* パンコマンド挿入 */
 						putSeq(&tracks, CMD_PAN, loopDepth, mml, compileErr);
 						putSeq(&tracks, pan, loopDepth, mml, compileErr);
+						isAbnormalState = false;
 						break;
 					}
 
@@ -2332,6 +2402,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					putSeq(&tracks, CMD_PAN_FADE, loopDepth, mml, compileErr);
 					putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
 					putSeq(&tracks, (tempVal[1]&0x3f), loopDepth, mml, compileErr);
+					isAbnormalState = false;
 					break;
 				}
 
@@ -2373,6 +2444,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 
 						/* パンコマンド挿入 */
 						putSeq(&tracks, CMD_PAN_VIBRATION_OFF, loopDepth, mml, compileErr);
+						isAbnormalState = false;
 						break;
 					}
 
@@ -2380,6 +2452,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					putSeq(&tracks, CMD_PAN_VIBRATION, loopDepth, mml, compileErr);
 					putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
 					putSeq(&tracks, tempVal[1], loopDepth, mml, compileErr);
+					isAbnormalState = false;
 					break;
 				}
 
@@ -2450,6 +2523,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					}
 					putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
 					putSeq(&tracks, tempVal[1], loopDepth, mml, compileErr);
+					isAbnormalState = false;
 					break;
 				}
 
@@ -2484,6 +2558,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				}
 				tracks.velocity[tracks.curTrack] = tempVal[0] - 1;
 				tracks.lastVelocity[tracks.curTrack] = -1;
+				isAbnormalState = false;
 				break;
 
 			/******************************************/
@@ -2531,6 +2606,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					putSeq(&tracks, delay, loopDepth, mml, compileErr);
 					putSeq(&tracks, tempVal[baseptr], loopDepth, mml, compileErr);
 					putSeq(&tracks, tempVal[baseptr+1], loopDepth, mml, compileErr);
+					isAbnormalState = false;
 					break;
 				}
 
@@ -2574,6 +2650,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						/* テンポコマンド挿入 */
 						putSeq(&tracks, CMD_TEMPO, loopDepth, mml, compileErr);
 						putSeq(&tracks, tempo, loopDepth, mml, compileErr);
+						isAbnormalState = false;
 						break;
 					}
 
@@ -2590,6 +2667,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					putSeq(&tracks, CMD_TEMPO_FADE, loopDepth, mml, compileErr);
 					putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
 					putSeq(&tracks, tempo, loopDepth, mml, compileErr);
+					isAbnormalState = false;
 
 					break;
 				}
@@ -2687,6 +2765,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				compileErr->level = ERR_DEBUG;
 				sprintf(compileErr->message, "Macro : %s", macroName);
 				addError(compileErr, compileErrList);
+
+				isAbnormalState = false;
 				break;
 			}
 
@@ -2720,6 +2800,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					continue;
 				}
 				putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
+				isAbnormalState = false;
 				break;
 
 			/******************************************/
@@ -2784,6 +2865,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					/* サブルーチンを抜けた後の音の長さが */
 					/* 一定になるようにする               */
 					tracks.forceTickOut[tracks.curTrack] = true;
+					isAbnormalState = false;
 					break;
 				}
 
@@ -2866,6 +2948,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					/* サブルーチン深度ダウン */
 					loopDepth--;
 
+					isAbnormalState = false;
 					break;
 				}
 
@@ -2893,6 +2976,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 
 				/* コマンド挿入 */
 				putSeq(&tracks, CMD_SUBROUTINE_BREAK, loopDepth, mml, compileErr);
+				isAbnormalState = false;
 				break;
 
 			/******************************************/
@@ -2967,6 +3051,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					/* 一定になるようにする               */
 					tracks.forceTickOut[tracks.curTrack] = true;
 
+					isAbnormalState = false;
 					break;
 				}
 
@@ -3095,6 +3180,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					/* サブルーチンを抜けた後の音の長さが */
 					/* 一定になるようにする               */
 					tracks.forceTickOut[tracks.curTrack] = true;
+					isAbnormalState = false;
 					break;
 				}
 
@@ -3160,6 +3246,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				/* サブルーチンを抜けた後の音の長さが */
 				/* 一定になるようにする               */
 				tracks.forceTickOut[tracks.curTrack] = true;
+				isAbnormalState = false;
 				break;
 			}
 
@@ -3191,11 +3278,14 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 			/* 見つけたらSyntax Errorにする           */
 			/******************************************/
 			default:
-				newError(mml, compileErr, compileErrList);
-				compileErr->type = SyntaxError;
-				compileErr->level = ERR_ERROR;
-				sprintf(compileErr->message, "Unknown character(%c : 0x%x).", readValue, readValue);
-				addError(compileErr, compileErrList);
+				if(false == isAbnormalState)
+				{
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "Unknown character(%c : 0x%x).", readValue, readValue);
+					addError(compileErr, compileErrList);
+				}
 				break;
 		}
 	}
