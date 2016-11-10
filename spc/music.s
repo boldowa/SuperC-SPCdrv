@@ -36,6 +36,7 @@ _TrackLoop
 	mov	track.stepLeft+x, a	; gate消化
 	beq	_Release
 	mov	a, track.releaseTiming+x
+	beq	_Loop
 	dec	a
 	mov	track.releaseTiming+x, a
 	bne	_Loop
