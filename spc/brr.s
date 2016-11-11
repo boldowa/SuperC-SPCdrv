@@ -69,9 +69,9 @@ SpecialWavFunc:
 	bne	+
 	mov	a, #18
 	bra	++
-+	cmp	a, #34
++	cmp	a, #33
 	bne	++
-	mov	a, #0
+	mov	a, #1
 ++	mov	specialWavPtr, a
 	ret
 SPWAV0:
