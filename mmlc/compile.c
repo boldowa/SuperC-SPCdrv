@@ -2309,7 +2309,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							continue;
 						}
 						tone = tempVal[0] + EXTONE_START;
-						tracks.transpose[tracks.curTrack] = toneTranspose.data[tempVal[0]];
+						tracks.transpose[tracks.curTrack] = (char)toneTranspose.data[tempVal[0]];
 						break;
 				}
 
