@@ -253,7 +253,7 @@ _PanVibration:
 	and	a, #$3f
 
 _NoPanVibration:
-	; --- Pan値から左音量を算出
+	; --- Pan値から右音量を算出
 	cmp	a, #$3f
 	bne	+
 	mov	a, lTemp
@@ -267,33 +267,18 @@ _NoPanVibration:
 	mov	y, lTemp
 	mul	ya
 	mov	a, y
-++	mov	llvol, a
+++	mov	lrvol, a
 	
 
 	; --- 右パンの算出
 _RightPan:
 	mov	a, lTemp
 	setc
-	sbc	a, llvol
-	mov	lrvol, a
+	sbc	a, lrvol
+	mov	llvol, a
 
 _VolLevel:
-	; --- right
-	mov	y, a
-	inc	y
-	mov	a, track.volumeH+x
-	mul	ya
-	inc	y
-	cmp     x, #MUSICTRACKS
-	bmi	+
-	mov	a, seGlobalVolume
-	bra	++
-+	mov	a, musicGlobalVolume
-++	mul	ya
-	mov	lrvol, y
-
 	; --- left
-	mov	a, llvol
 	mov	y, a
 	inc	y
 	mov	a, track.volumeH+x
@@ -306,6 +291,21 @@ _VolLevel:
 +	mov	a, musicGlobalVolume
 ++	mul	ya
 	mov	llvol, y
+
+	; --- right
+	mov	a, lrvol
+	mov	y, a
+	inc	y
+	mov	a, track.volumeH+x
+	mul	ya
+	inc	y
+	cmp     x, #MUSICTRACKS
+	bmi	+
+	mov	a, seGlobalVolume
+	bra	++
++	mov	a, musicGlobalVolume
+++	mul	ya
+	mov	lrvol, y
 
 	/******************************/
 	/* Pitchモジュレーション      */
