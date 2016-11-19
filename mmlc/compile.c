@@ -83,7 +83,7 @@ enum commandlist{
  * 音階テーブル
  */
 static const byte SCALE_TABLE[] = {9, 11, 0, 2, 4, 5, 7};
-static const byte DRUM_TABLE[] = {6, 7, 0, 1, 2, 3, 4};
+static const byte DRUM_TABLE[] = {5, 6, 0, 1, 2, 3, 4};
 
 /**
  * 異常状態フラグ
