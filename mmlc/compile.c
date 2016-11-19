@@ -887,6 +887,11 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 	bool isMutiLineComment = false;
 
 	/**
+	 * パンポット逆転モードかどうか
+	 */
+	bool isReverseStereo = false;
+
+	/**
 	 * mmlから読みだしたデータ
 	 */
 	char readValue;
@@ -1719,6 +1724,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					{
 						byte adr, sr, rr, tmp;
 						byte qv;
+						byte pan;
 
 						/* Decay */
 						adr = arg[5];
@@ -1752,6 +1758,17 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 
 						qv =  ( ((arg[9]-1)&0x7) << 4);
 						qv |= ((arg[10] - 1) & 0xf);
+
+						pan = arg[11];
+						if(true == isReverseStereo)
+						{
+							tmp = pan;
+							pan ^= 0x3f;
+							pan++;
+							pan &= 0x3f;
+							pan |= (tmp & 0xc0);
+						}
+
 						drumTable[drumTableCtr++] = localBrrInx;	/* 波形番号 */
 						drumTable[drumTableCtr++] = arg[0];		/* ピッチ倍率 */
 						drumTable[drumTableCtr++] = arg[2];		/* デチューン */
@@ -1759,7 +1776,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						drumTable[drumTableCtr++] = sr;			/* SR */
 						drumTable[drumTableCtr++] = rr;			/* RR */
 						drumTable[drumTableCtr++] = qv;			/* ゲートタイム・ベロシティ */
-						drumTable[drumTableCtr++] = arg[11];		/* パンポット */
+						drumTable[drumTableCtr++] = pan;		/* パンポット */
 						drumTable[drumTableCtr++] = arg[12];		/* 音階値 */
 						isAbnormalState = false;
 						break;
@@ -1774,6 +1791,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						gmode2 = arg[6];
 						gv2 = arg[7];
 						byte qv;
+						byte pan,tmp;
 
 						/* 発音時のGAIN */
 						switch(gmode1)
@@ -1827,6 +1845,17 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						}
 						qv =  ( ((arg[8]-1)&0x7) << 4);
 						qv |= ((arg[9] - 1) & 0xf);
+
+						pan = arg[10];
+						if(true == isReverseStereo)
+						{
+							tmp = pan;
+							pan ^= 0x3f;
+							pan++;
+							pan &= 0x3f;
+							pan |= (tmp & 0xc0);
+						}
+
 						drumTable[drumTableCtr++] = localBrrInx;	/* 波形番号 */
 						drumTable[drumTableCtr++] = arg[0];		/* ピッチ倍率 */
 						drumTable[drumTableCtr++] = arg[2];		/* デチューン */
@@ -1834,7 +1863,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						drumTable[drumTableCtr++] = gain1;		/* GAIN1 */
 						drumTable[drumTableCtr++] = gain2;		/* GAIN2 */
 						drumTable[drumTableCtr++] = qv;			/* ゲートタイム・ベロシティ */
-						drumTable[drumTableCtr++] = arg[10];		/* パンポット */
+						drumTable[drumTableCtr++] = pan;		/* パンポット */
 						drumTable[drumTableCtr++] = arg[11];		/* 音階値 */
 						isAbnormalState = false;
 						break;
@@ -1858,6 +1887,19 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					addError(compileErr, compileErrList);
 					continue;
 				} /* endif macro */
+				else if(mmlCmpStr(mml, "reversestereo") == true)
+				{
+					isReverseStereo = !isReverseStereo;
+
+					/* ログ出力 */
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = ErrorNone;
+					compileErr->level = ERR_DEBUG;
+					sprintf(compileErr->message, "ReverseStereo => left is %i", isReverseStereo ? 0 : 63);
+					addError(compileErr, compileErrList);
+
+					isAbnormalState = false;
+				} /* endif reversestereo */
 				else
 				{
 					newError(mml, compileErr, compileErrList);
@@ -2360,6 +2402,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 			case 'p':
 				{
 					int nums;
+					byte pan;
+
 					/* ログ出力 */
 					newError(mml, compileErr, compileErrList);
 					compileErr->type = ErrorNone;
@@ -2380,7 +2424,13 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 
 					if(nums == 1)
 					{
-						byte pan = tempVal[0];
+						pan = (tempVal[0] & 0x3f);
+						if(true == isReverseStereo)
+						{
+							pan ^= 0x3f;
+							pan++;
+							pan &= 0x3f;
+						}
 						/* サラウンド */
 						if(true == tracks.lvolRev[tracks.curTrack])
 						{
@@ -2399,9 +2449,16 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					}
 
 					/* パンフェードコマンド挿入 */
+					pan = (tempVal[1] & 0x3f);
+					if(true == isReverseStereo)
+					{
+						pan ^= 0x3f;
+						pan++;
+						pan &= 0x3f;
+					}
 					putSeq(&tracks, CMD_PAN_FADE, loopDepth, mml, compileErr);
 					putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
-					putSeq(&tracks, (tempVal[1]&0x3f), loopDepth, mml, compileErr);
+					putSeq(&tracks, pan, loopDepth, mml, compileErr);
 					isAbnormalState = false;
 					break;
 				}
