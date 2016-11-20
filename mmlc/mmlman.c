@@ -76,8 +76,11 @@ bool mmlopen(MmlMan* mml, char* fname)
 	memset(mml->spcTitle, '\0', 32);
 	memset(mml->spcGame, '\0', 32);
 	memset(mml->spcComposer, '\0', 32);
-	memset(mml->spcDumper, '\0', 32);
+	memset(mml->spcDumper, '\0', 16);
 	memset(mml->spcComment, '\0', 32);
+
+	mml->playingTime = 300;
+	mml->fadeTime = 10000;
 
 	/* ファイルパスを取得します */
 	strcpy(mml->fname, fname);

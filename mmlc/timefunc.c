@@ -27,6 +27,22 @@ void setDateStr(char* sDate)
 }
 
 /**
+ * 現在日時文字列の取得(SPC用)
+ * (Windows向け)
+ */
+void setDateStrForSPC(char* sDate)
+{
+	SYSTEMTIME tm;
+	GetLocalTime(&tm);
+
+	sprintf(sDate, "%02hu/%02hu/%4hu",
+		tm.wMonth,
+		tm.wDay,
+		tm.wYear
+	       );
+}
+
+/**
  * 現在時刻の取得
  * (Windows向け)
  */
@@ -78,6 +94,25 @@ void setDateStr(char* sDate)
 		time_st->tm_min,
 		time_st->tm_sec,
 		(int)time.tv_usec
+		);
+}
+
+/**
+ * 現在日時文字列の取得(SPC用)
+ * (Linux向け)
+ */
+void setDateStrForSPC(char* sDate)
+{
+	struct timeval time;
+	struct tm* time_st;
+
+	gettimeofday(&time, NULL); /* 時間取得 */
+	time_st = localtime(&time.tv_sec); /* 現地時間に変換する */
+
+	sprintf(sDate, "%02d/%02d/%4d",
+		time_st->tm_mon+1,
+		time_st->tm_mday,
+	        time_st->tm_year+1900
 		);
 }
 

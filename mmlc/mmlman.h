@@ -71,12 +71,22 @@ typedef struct stMmlMan
 	/**
 	 * SPCダンパー
 	 */
-	char spcDumper[32];
+	char spcDumper[16];
 
 	/**
 	 * コメント
 	 */
 	char spcComment[32];
+
+	/**
+	 * 曲の長さ
+	 */
+	int playingTime;
+
+	/**
+	 * フェード値
+	 */
+	int fadeTime;
 
 	/**
 	 * EDLの最大値

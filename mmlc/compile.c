@@ -1950,6 +1950,132 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 
 					isAbnormalState = false;
 				} /* endif reversestereo */
+				else if(mmlCmpStr(mml, "title") == true)
+				{
+					char songTitle[32];
+
+					skipspaces(mml);
+					if(GET_STRING_OK != getStringData(songTitle, 32, mml, compileErrList))
+					{
+						isAbnormalState = true;
+						continue;
+					}
+
+					strcpy(mml->spcTitle, songTitle);
+				} /* endif title */
+				else if(mmlCmpStr(mml, "game") == true)
+				{
+					char songGame[32];
+
+					skipspaces(mml);
+					if(GET_STRING_OK != getStringData(songGame, 32, mml, compileErrList))
+					{
+						isAbnormalState = true;
+						continue;
+					}
+
+					strcpy(mml->spcGame, songGame);
+				} /* endif game */
+				else if(mmlCmpStr(mml, "composer") == true)
+				{
+					char songComposer[32];
+
+					skipspaces(mml);
+					if(GET_STRING_OK != getStringData(songComposer, 32, mml, compileErrList))
+					{
+						isAbnormalState = true;
+						continue;
+					}
+
+					strcpy(mml->spcComposer, songComposer);
+				} /* endif composer */
+				else if(mmlCmpStr(mml, "dumper") == true)
+				{
+					char songDumper[16];
+
+					skipspaces(mml);
+					if(GET_STRING_OK != getStringData(songDumper, 16, mml, compileErrList))
+					{
+						isAbnormalState = true;
+						continue;
+					}
+
+					strcpy(mml->spcDumper, songDumper);
+				} /* endif dumper */
+				else if(mmlCmpStr(mml, "comment") == true)
+				{
+					char songComment[32];
+
+					skipspaces(mml);
+					if(GET_STRING_OK != getStringData(songComment, 32, mml, compileErrList))
+					{
+						isAbnormalState = true;
+						continue;
+					}
+
+					strcpy(mml->spcComment, songComment);
+				} /* endif comment */
+				else if(mmlCmpStr(mml, "length") == true)
+				{
+					int nums;
+					int sec;
+
+					skipspaces(mml);
+
+					nums = getNumbers(mml, true, tempVal, compileErrList);
+					if(2 < nums || 0 == nums)
+					{
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "Invalid length.");
+						addError(compileErr, compileErrList);
+						continue;
+					}
+
+					/* sec,fade 指定 */
+					if(2 == nums)
+					{
+						mml->playingTime = tempVal[0];
+						mml->fadeTime = tempVal[1];
+						break;
+					}
+
+					/* sec のみ指定 */
+					if(':' != mmlgetch(mml))
+					{
+						mml->playingTime = tempVal[0];
+						break;
+					}
+
+					mmlgetforward(mml);
+					sec = tempVal[0]*60;
+
+					nums = getNumbers(mml, true, tempVal, compileErrList);
+					/* min:sec,fade 指定 */
+					if(2 == nums)
+					{
+						mml->playingTime = sec + tempVal[0];
+						mml->fadeTime = tempVal[1];
+						break;
+					}
+
+					/* min:sec 指定 */
+					if(1 == nums)
+					{
+						mml->playingTime = sec + tempVal[0];
+						break;
+					}
+
+					/* ここに来たらエラー */
+					newError(mml, compileErr, compileErrList);
+					compileErr->type = SyntaxError;
+					compileErr->level = ERR_ERROR;
+					sprintf(compileErr->message, "Invalid length.");
+					addError(compileErr, compileErrList);
+					continue;
+
+				} /* endif length */
 				else
 				{
 					newError(mml, compileErr, compileErrList);

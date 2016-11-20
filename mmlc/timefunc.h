@@ -20,6 +20,7 @@
  * 関数
  */
 void setDateStr(char*);
+void setDateStrForSPC(char*);
 void getTime(TIME*);
 double getTimeToPass(TIME*, TIME*);
 

@@ -21,10 +21,12 @@ typedef struct {
 	char gameTitle[32];
 	char dumper[16];
 	char comment[32];
-	unsigned char musicInfo[19];		/* Not used, and lazy :p */
+	char date[11];
+	char musicLength[3];
+	char fadeTime[5];
 	char composer[32];
-	unsigned char defaultChannelDisable[1];
-	unsigned char emulator[1];
+	char defaultChannelDisable;
+	char emulator;
 	unsigned char unused[45];
 } stID666_Text;
 

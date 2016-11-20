@@ -5,6 +5,7 @@
 #include "mmlman.h"
 #include "binaryman.h"
 #include "compile.h"
+#include "timefunc.h"
 #include "spc.h"
 
 /**
@@ -197,6 +198,7 @@ bool makeSPC(byte* spc, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData
 	stBrrListData* blread;
 	FILE* brr;
 	byte brrBuf[1024];
+	char tmpstr[6];
 
 	/* ID666情報を生成します */
 	id666 = (stID666_Text*)spc;
@@ -216,8 +218,17 @@ bool makeSPC(byte* spc, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData
 	}
 	memcpy(id666->gameTitle, mml->spcGame, 32);
 	memcpy(id666->composer, mml->spcComposer, 32);
-	memcpy(id666->dumper, mml->spcDumper, 32);
+	memcpy(id666->dumper, mml->spcDumper, 16);
 	memcpy(id666->comment, mml->spcComment, 32);
+	setDateStrForSPC(id666->date);
+	id666->defaultChannelDisable = '0';
+	id666->emulator = '0';
+	memset(tmpstr, 0, 6);
+	sprintf(tmpstr, "%03d", mml->playingTime);
+	memcpy(id666->musicLength, tmpstr, 3);
+	memset(tmpstr, 0, 6);
+	sprintf(tmpstr, "%05d", mml->fadeTime);
+	memcpy(id666->fadeTime, tmpstr, 5);
 
 	/* SPCコアデータをセットします */
 	memcpy(&spc[0x100 + core->location], core->data, core->size);
