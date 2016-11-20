@@ -80,6 +80,15 @@ enum commandlist{
 };
 
 /**
+ * getStringData関数戻り値
+ */
+typedef enum{
+	GET_STRING_OK = 0,
+	GET_STRING_NODATA,
+	GET_STRING_ERROR,
+}GetStringResult;
+
+/**
  * 音階テーブル
  */
 static const byte SCALE_TABLE[] = {9, 11, 0, 2, 4, 5, 7};
@@ -216,6 +225,65 @@ typedef struct {
  */
 #define mmlCmpStr(mml, str)\
 	mmlcmpstr(mml, str, strlen(str))
+
+/**
+ * 文字列データの取得
+ * ※文字列読み取りエラーが発生した場合、destに格納される値は不定となります。
+ */
+GetStringResult getStringData(char* dest, const int maxLength, MmlMan* mml, ErrorNode* compileErrList)
+{
+	ErrorNode *compileErr = NULL;
+	char readValue;
+	int dataInx = 0;
+
+	readValue = mmlgetch(mml);
+	if('"' != readValue)
+	{
+		/* " で始まっていないので、文字列データではありません */
+		return GET_STRING_NODATA;
+	}
+
+	/* " を読み飛ばします */
+	mmlgetforward(mml);
+
+	/* 文字列データを配列にコピーします */
+	do
+	{
+		readValue = mmlgetforward(mml);
+		/* 末端に到達した場合、読み出し終わり */
+		if('"' == readValue)
+		{
+			break;
+		}
+		/* 途中で改行があった場合は、取得中止(エラー) */
+		if(true == mml->isnewline)
+		{
+			newError(mml, compileErr, compileErrList);
+			compileErr->type = SyntaxError;
+			compileErr->level = ERR_ERROR;
+			sprintf(compileErr->message, "Incorrect line break, string data not closed.");
+			addError(compileErr, compileErrList);
+			return GET_STRING_ERROR;
+		}
+
+		/* データ追加 */
+		dest[dataInx++] = readValue;
+	}while(maxLength-1 > dataInx);
+	dest[dataInx] = '\0';
+
+	if('"' != readValue)
+	{
+		/* 文字数が長すぎるか、'"' が見つからない */
+		newError(mml, compileErr, compileErrList);
+		compileErr->type = SyntaxError;
+		compileErr->level = ERR_ERROR;
+		sprintf(compileErr->message, "String is too long, or '\"' is missing (%s).", dest);
+		addError(compileErr, compileErrList);
+		return GET_STRING_ERROR;
+	}
+
+	return GET_STRING_OK;
+}
 
 /**
  * MD5値の取得
@@ -1531,13 +1599,14 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				} /* endif swap<> */
 				else if( (true == mmlCmpStr(mml, "tone")) || (true == (isDrum = mmlCmpStr(mml, "drum"))) )
 				{
+					GetStringResult gs_result;
+					int pathLength;
 					int validNums = 10;
 					int nums = 0;
 					int* arg = tempVal;
 					bool isFile = false;
 					bool isNoise = false;
 					char fileName[MAX_PATH];
-					int fileNameInx = 0;
 					int localBrrInx = 0;
 					stBrrListData *localBlist = NULL;
 					byte digest[16];
@@ -1558,43 +1627,24 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					}
 
 					skipspaces(mml);
-					readValue = mmlgetch(mml);
-					if('"' == readValue)	/* BRRファイル名で指定 */
+
+					/* mmlファイルパスをセット */
+					strcpy(fileName, mml->fdir);
+					pathLength = strlen(fileName);
+					gs_result = getStringData((fileName+pathLength), (MAX_PATH-pathLength), mml, compileErrList);
+
+					if(GET_STRING_NODATA != gs_result)
 					{
-						/* mmlのあるパスを取得 */
-						strcpy(fileName, mml->fdir);
-						fileNameInx = strlen(fileName);
-						/* BRRファイル名を取得する */
-						mmlgetforward(mml);
-						do
+						if(GET_STRING_ERROR == gs_result)
 						{
-							readValue = mmlgetforward(mml);
-							if('"' == readValue)
-							{
-								break;
-							}
-							if(true == mml->isnewline)
-							{
-								newError(mml, compileErr, compileErrList);
-								compileErr->type = SyntaxError;
-								compileErr->level = ERR_ERROR;
-								sprintf(compileErr->message, "BRR filepath not closed.");
-								addError(compileErr, compileErrList);
-								continue;
-							}
-							fileName[fileNameInx++] = readValue;
-						}while(MAX_PATH-1 > fileNameInx);
-						fileName[fileNameInx] = '\0';
-						if('"' != readValue)
-						{
-							/* ファイル名が長すぎるか、'"' が見つからない */
 							newError(mml, compileErr, compileErrList);
 							compileErr->type = SyntaxError;
 							compileErr->level = ERR_ERROR;
-							sprintf(compileErr->message, "File name is too long, or '\"' is missing (%s).", fileName);
+							sprintf(compileErr->message, "Failed to get BRR filepath.");
 							addError(compileErr, compileErrList);
 							continue;
 						}
+
 						skipspaces(mml);
 						if(',' != mmlgetforward(mml))
 						{
