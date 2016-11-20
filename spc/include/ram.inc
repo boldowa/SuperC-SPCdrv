@@ -74,6 +74,7 @@
 	seChNums			db	; 効果音に割り当て可能なCH数
 	ZERO				dw	; 恒久的に0を持つ2バイト領域
 	seqBaseAddress			dw	; シーケンスデータのベースアドレス(データ開始位置)
+	sfxBaseAddress			dw	; 効果音データのベースアドレス(データ開始位置)
 	drumToneTablePtr		dw	; ドラムセット位置、通常はシーケンスアドレス+(トラック数*2)
 	exToneTablePtr			dw	; 曲に付随するトーンテーブル、通常はシーケンスアドレス+(トラック数*2)+(ドラム音色構造体サイズ*7)
 	tmpTrackSysBits			db	;\  それぞれtmpを除いた同名の名前のトラックメモリの一時作業メモリ

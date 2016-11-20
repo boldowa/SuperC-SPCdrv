@@ -421,8 +421,11 @@ readSeq:
  *
  ****************************************/
 SetRelativePointer:
+	bcs	rootSysFlags.1, +
 	addw	ya, seqBaseAddress
-	movw	lSeqPointer, ya
+	bra	++
++	addw	ya, sfxBaseAddress
+++	movw	lSeqPointer, ya
 	ret
 
 /**************************************************/
