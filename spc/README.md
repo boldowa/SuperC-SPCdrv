@@ -58,7 +58,7 @@ ARAM:*seqBaseAddress(0x0028)* holds the music data location.
 ### Structure of music data
 
 |structure|
-|-:-|
+|:-:|
 |**Track data location table**<br>2 \* 12 bytes|
 |**Drum tone table**<br>9 \* 7 bytes|
 |**Music tone table**<br>6 \* n bytes|
