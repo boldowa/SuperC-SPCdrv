@@ -73,11 +73,14 @@
 	CMD_PITCH_ENVELOPE	db
 	CMD_PITCH_ENVELOPE_OFF	db
 
-	SEQCMDEND		db
+	SEQCMD_END		db
 .ende
 
-.printt "SEQCMDEND: 0x"
-.printv hex SEQCMDEND-1
+.printt "SEQCMD_START: 0x"
+.printv hex SEQCMD_START
+.printt "\n"
+.printt "SEQCMD_END: 0x"
+.printv hex SEQCMD_END-1
 .printt "\n"
 
 .endif
