@@ -421,7 +421,7 @@ readSeq:
  *
  ****************************************/
 SetRelativePointer:
-	bcs	rootSysFlags.1, +
+	bbs	rootSysFlags.1, +
 	addw	ya, seqBaseAddress
 	bra	++
 +	addw	ya, sfxBaseAddress
@@ -656,9 +656,11 @@ _laLoop:
 	cmp	a, #SEQCMD_START
 	bmi	_NotTie			; 通常音符の場合、切る
 	cmp	a, #CMD_PORTAM_OFF
-	beq	_NotTie			; 次コマンドがポルタメントOFFの場合、切る
+	bne	+
+	clr1	tmpTrackSysBits.7
+	bra	_NotTie			; 次コマンドがポルタメントOFFの場合、切る
 
-	mov	x, #0			; Jumpの分岐で使用する為、0(false)に
++	mov	x, #0			; Jumpの分岐で使用する為、0(false)に
 	cmp	a, #CMD_JUMP
 	beq	_lookJump
 	cmp	a, #CMD_SUBROUTINE

@@ -10,6 +10,6 @@ CmdPortamentoOn:
 	ret
 
 CmdPortamentoOff:
-	clr1	tmpTrackSysBits.7
+	;clr1	tmpTrackSysBits.7	; music.s‚Ìæ“Ç‚İˆ—‚ÅƒNƒŠƒA‚·‚éˆ×A“®ì‚È‚µ
 	ret
 
