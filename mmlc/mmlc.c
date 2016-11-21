@@ -11,6 +11,7 @@
 #include "spc.h"
 #include "errorman.h"
 #include "timefunc.h"
+#include "pathfunc.h"
 
 #define BRR_BUF 2048
 
@@ -220,6 +221,7 @@ int main(const int argc, const char** argv)
 	stBrrListData *brrList = NULL;
 	byte spcBuffer[0x10200];
 	stSpcCore spcCore;
+	char spcCorePath[MAX_PATH];
 
 	getTime(&startTime);
 
@@ -238,10 +240,14 @@ int main(const int argc, const char** argv)
 		return 0;
 	}
 
+	/* 実行ファイルのあるディレクトリを取得します */
+	getFileDir(spcCorePath, argv[0]);
+	/* SPCドライバコアファイルパスをセットします */
+	strcat(spcCorePath, "spccore.bin");
 	/* SPCドライバコアファイルを読み込みます */
-	if(false == coreread(&spcCore, "spccore.bin"))
+	if(false == coreread(&spcCore, spcCorePath))
 	{
-		putfatal("Can't read \"spccore.bin\".");
+		putfatal("Can't read \"%s\".", spcCorePath);
 		return -1;
 	}
 	printf("spc core Version: %02x.%02x\n", spcCore.ver, spcCore.verMiner);
