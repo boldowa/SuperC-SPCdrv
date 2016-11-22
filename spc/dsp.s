@@ -23,6 +23,10 @@ DspPreProcess:
 ; チャンネル毎のデータを更新する
 ; (Vol, Pitch, Srcn, ADSR, Gain)
 
+	; 音の鳴っていない、且つKEYONしないCHを開放する
+	; (※ 重くなる、もしくは割り当て不安定なら、要コメントアウト)
+	call	DspReleaseMuteChannel
+
 	; キーオフ(キーオンする場所は対象外)
 	mov	a, buf_keyon
 	eor	a, #$ff
@@ -30,10 +34,7 @@ DspPreProcess:
 	mov	SPC_REGADDR, #DSP_KOF
 	mov	SPC_REGDATA, a
 
-	; 音の鳴っていない、且つKEYONしないCHを開放する
-	; (※ 重くなる、もしくは割り当て不安定なら、要コメントアウト)
-	call	DspReleaseMuteChannel
-
+	/* ループ前準備 */
 	mov	x, #0			; x ... ch更新情報メモリ読出しカウンタ
 	mov	y, #0			; y ... DSP メモリアドレス
 
