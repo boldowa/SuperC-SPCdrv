@@ -166,6 +166,13 @@ typedef struct tag_stLabelNode {
 	int depth;	/* ループ深度 */
 	int addr;	/* サブルーチン開始アドレス */
 
+	int lastoctave;		/* サブルーチンを抜ける際のオクターブ値 */
+	int lastticks;		/* サブルーチンを抜ける際のtick値 */
+	int lastvelocity;	/* サブルーチンを抜ける際のベロシティ値 */
+	int lastgatetime;	/* サブルーチンを抜ける際のゲートタイム値 */
+	bool noteExists;	/* 音符データを含むか */
+	bool tieExists;		/* タイデータを含むか */
+
 	struct tag_stLabelNode* left;
 	struct tag_stLabelNode* right;
 } stLabelNode;
@@ -176,9 +183,9 @@ typedef struct tag_stLabelNode {
  * 再計算するために使う
  */
 typedef struct tag_stSubroutineListData {
-	int depth;	/* ループ深度 */
-	int track;	/* コマンドのあるトラック */
-	int subaddr;	/* サブルーチンコマンドのアドレス */
+	int depth;		/* ループ深度 */
+	int track;		/* コマンドのあるトラック */
+	int subaddr;		/* サブルーチンコマンドのアドレス */
 
 	struct tag_stSubroutineListData* next;
 } stSubroutineListData;
@@ -474,6 +481,13 @@ stLabelNode* makeLabelNode(int label, int depth, int addr)
 		node->addr = addr;
 		node->left = NULL;
 		node->right = NULL;
+
+		node->lastoctave = -1;
+		node->lastticks = -1;
+		node->lastvelocity = -1;
+		node->lastgatetime = -1;
+		node->noteExists = false;
+		node->tieExists = false;
 	}
 	return node;
 }
@@ -1218,6 +1232,11 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						addError(compileErr, compileErrList);
 
 						note = TIE;
+
+						if(0 < loopDepth)
+						{
+							lastSub[loopDepth].tieExists = true;
+						}
 					}
 					else
 					{
@@ -1269,6 +1288,11 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 								continue;
 							}
 							note = ((octaveTmp-OCTAVE_MIN)*12 + scale) | 0x80;
+
+							if(0 < loopDepth)
+							{
+								lastSub[loopDepth].noteExists = true;
+							}
 						}
 						else
 						{
@@ -1304,10 +1328,13 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					tracks.forceTickOut[tracks.curTrack] = false;
 
 					/* ゲートタイム/ベロシティ挿入 */
-					if((tracks.gatetime[tracks.curTrack] != tracks.lastGatetime[tracks.curTrack]) || (tracks.velocity[tracks.curTrack] != tracks.lastVelocity[tracks.curTrack]))
+					if(false == tracks.drumPart[tracks.curTrack])
 					{
-						byte qv = (tracks.gatetime[tracks.curTrack] << 4) | tracks.velocity[tracks.curTrack];
-						putSeq(&tracks, qv, loopDepth, mml, compileErr);
+						if((tracks.gatetime[tracks.curTrack] != tracks.lastGatetime[tracks.curTrack]) || (tracks.velocity[tracks.curTrack] != tracks.lastVelocity[tracks.curTrack]))
+						{
+							byte qv = (tracks.gatetime[tracks.curTrack] << 4) | tracks.velocity[tracks.curTrack];
+							putSeq(&tracks, qv, loopDepth, mml, compileErr);
+						}
 					}
 
 					/* 音譜・休符・タイの挿入 */
@@ -1524,7 +1551,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					newError(mml, compileErr, compileErrList);
 					compileErr->type = ErrorNone;
 					compileErr->level = ERR_DEBUG;
-					sprintf(compileErr->message, "Track Change => %d (TODO: Implement)", tempVal[0]);
+					sprintf(compileErr->message, "Track Change => %d", tempVal[0]);
 					addError(compileErr, compileErrList);
 
 					isAbnormalState = false;
@@ -1702,11 +1729,15 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						validNums--;
 						skipspaces(mml);
 					}
-					else if('n' == readValue)	/* ノイズクロック指定 */
+					else
 					{
-						/* 'n' の読み飛ばし */
-						mmlgetforward(mml);
-						isNoise = true;
+						readValue = mmlgetch(mml);
+						if('n' == readValue)	/* ノイズクロック指定 */
+						{
+							/* 'n' の読み飛ばし */
+							mmlgetforward(mml);
+							isNoise = true;
+						}
 					}
 
 					/* 引数取得 */
@@ -3175,6 +3206,15 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						}
 					}
 
+					/* サブルーチン終了時の値を記憶 */
+					if(0 > lastSub[loopDepth].lastoctave)
+					{
+						lastSub[loopDepth].lastoctave = tracks.curOctave[tracks.curTrack];
+						lastSub[loopDepth].lastticks = tracks.ticks[tracks.curTrack];
+						lastSub[loopDepth].lastvelocity = tracks.lastVelocity[tracks.curTrack];
+						lastSub[loopDepth].lastgatetime = tracks.lastGatetime[tracks.curTrack];
+					}
+
 					/* サブルーチン末端コマンド書き込み */
 					putSeq(&tracks, CMD_SUBROUTINE_RETURN, loopDepth, mml, compileErr);
 
@@ -3205,6 +3245,15 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					sprintf(compileErr->message, "']' : Subroutine is not started.");
 					addError(compileErr, compileErrList);
 					continue;
+				}
+
+				/* サブルーチン終了時の値を記憶 */
+				if(0 > lastSub[loopDepth].lastoctave)
+				{
+					lastSub[loopDepth].lastoctave = tracks.curOctave[tracks.curTrack];
+					lastSub[loopDepth].lastticks = tracks.ticks[tracks.curTrack];
+					lastSub[loopDepth].lastvelocity = tracks.lastVelocity[tracks.curTrack];
+					lastSub[loopDepth].lastgatetime = tracks.lastGatetime[tracks.curTrack];
 				}
 
 				/* コマンド挿入 */
@@ -3262,6 +3311,20 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					putSeq(&tracks, (tempVal[0]-1), loopDepth, mml, compileErr);
 					putSeq(&tracks, latestSub->addr, loopDepth, mml, compileErr);
 					putSeq(&tracks, (latestSub->addr>>8), loopDepth, mml, compileErr);
+
+					/* サブルーチン終了後の各種値の復元 */
+					if(true == latestSub->noteExists)
+					{
+						tracks.curOctave[tracks.curTrack] = latestSub->lastoctave;
+					}
+					tracks.ticks[tracks.curTrack] = latestSub->lastticks;
+					if( (true == latestSub->noteExists) || (true == latestSub->tieExists) )
+					{
+						tracks.velocity[tracks.curTrack] = latestSub->lastvelocity;
+						tracks.lastVelocity[tracks.curTrack] = latestSub->lastvelocity;
+						tracks.gatetime[tracks.curTrack] = latestSub->lastgatetime;
+						tracks.lastGatetime[tracks.curTrack] = latestSub->lastgatetime;
+					}
 
 					/* サブルーチン呼び元記憶　*/
 					trk = (0>loopDepth ? tracks.curTrack : TRACKS);
@@ -3386,6 +3449,20 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						sprintf(compileErr->message, "Invalid loop num.");
 						addError(compileErr, compileErrList);
 						continue;
+					}
+
+					/* サブルーチン終了後の各種値の復元 */
+					if(true == node->noteExists)
+					{
+						tracks.curOctave[tracks.curTrack] = node->lastoctave;
+					}
+					tracks.ticks[tracks.curTrack] = node->lastticks;
+					if( (true == node->noteExists) || (true == node->tieExists) )
+					{
+						tracks.velocity[tracks.curTrack] = node->lastvelocity;
+						tracks.lastVelocity[tracks.curTrack] = node->lastvelocity;
+						tracks.gatetime[tracks.curTrack] = node->lastgatetime;
+						tracks.lastGatetime[tracks.curTrack] = node->lastgatetime;
 					}
 
 					/* サブルーチンコマンド挿入 */
