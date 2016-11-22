@@ -60,9 +60,7 @@ enum commandlist{
 	CMD_PORTAM_ON,
 	CMD_PORTAM_OFF,
 	CMD_MODURATION,
-	CMD_MODURATION_OFF,
 	CMD_TREMOLO,
-	CMD_TREMOLO_OFF,
 	CMD_SUBROUTINE,
 	CMD_SUBROUTINE_RETURN,
 	CMD_SUBROUTINE_BREAK,
@@ -74,9 +72,17 @@ enum commandlist{
 	CMD_REL_TRANSPOSE,
 	CMD_PAN_FADE,
 	CMD_PAN_VIBRATION,
-	CMD_PAN_VIBRATION_OFF,
-	CMD_HARDPM_ON,
-	CMD_HARDPM_OFF,
+	CMD_PITCH_ENVELOPE,
+	CMD_CMD_ARG0,
+};
+
+enum subcommandlist{
+	SCMD_MODURATION_OFF = 0,
+	SCMD_TREMOLO_OFF,
+	SCMD_PAN_VIBRATION_OFF,
+	SCMD_HWPM_ON,
+	SCMD_HWPM_OFF,
+	SCMD_PITCH_ENVELOPE_OFF,
 };
 
 /**
@@ -2239,11 +2245,12 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							}
 							if(1 == nums && tempVal[0] == 0)
 							{
-								putSeq(&tracks, CMD_HARDPM_OFF, loopDepth, mml, compileErr);
+								putSeq(&tracks, CMD_CMD_ARG0, loopDepth, mml, compileErr);
+								putSeq(&tracks, SCMD_HWPM_OFF, loopDepth, mml, compileErr);
 								isAbnormalState = false;
 								break;
 							}
-							putSeq(&tracks, CMD_HARDPM_ON, loopDepth, mml, compileErr);
+							putSeq(&tracks, SCMD_HWPM_ON, loopDepth, mml, compileErr);
 						}
 						isAbnormalState = false;
 						break;
@@ -2322,7 +2329,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							if((nums == 1 && tempVal[0] == 0))
 							{
 								/* トレモロOFFコマンド挿入 */
-								putSeq(&tracks, CMD_TREMOLO_OFF, loopDepth, mml, compileErr);
+								putSeq(&tracks, CMD_CMD_ARG0, loopDepth, mml, compileErr);
+								putSeq(&tracks, SCMD_TREMOLO_OFF, loopDepth, mml, compileErr);
 								isAbnormalState = false;
 								break;
 							}
@@ -2707,7 +2715,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						}
 
 						/* パンコマンド挿入 */
-						putSeq(&tracks, CMD_PAN_VIBRATION_OFF, loopDepth, mml, compileErr);
+						putSeq(&tracks, CMD_CMD_ARG0, loopDepth, mml, compileErr);
+						putSeq(&tracks, SCMD_PAN_VIBRATION_OFF, loopDepth, mml, compileErr);
 						isAbnormalState = false;
 						break;
 					}
@@ -2848,7 +2857,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					if((nums == 1 && tempVal[0] == 0))
 					{
 						/* モジュレーションOFFコマンド挿入 */
-						putSeq(&tracks, CMD_MODURATION_OFF, loopDepth, mml, compileErr);
+						putSeq(&tracks, CMD_CMD_ARG0, loopDepth, mml, compileErr);
+						putSeq(&tracks, SCMD_MODURATION_OFF, loopDepth, mml, compileErr);
 						break;
 					}
 					if(2 > nums || 3 < nums)

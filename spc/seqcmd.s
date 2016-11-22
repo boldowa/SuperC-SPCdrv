@@ -31,9 +31,7 @@ CmdTable:
 	.dw	CmdPortamentoOn
 	.dw	CmdPortamentoOff
 	.dw	CmdPitchModulation
-	.dw	CmdPitchModulationOff
 	.dw	CmdTremolo
-	.dw	CmdTremoloOff
 	.dw	CmdSubroutine
 	.dw	CmdSubroutineReturn
 	.dw	CmdSubroutineBreak
@@ -45,11 +43,8 @@ CmdTable:
 	.dw	CmdRelativeTranspose
 	.dw	CmdPanFade
 	.dw	CmdPanVibration
-	.dw	CmdPanVibrationOff
-	.dw	CmdHWPitchModulationOn
-	.dw	CmdHWPitchModulationOff
 	.dw	CmdPitchEnvelope
-	.dw	CmdPitchEnvelopeOff
+	.dw	CmdCmdCallArg0
 
 CmdLengthTable:
 	.db	1	; CmdSetInstrument
@@ -65,9 +60,7 @@ CmdLengthTable:
 	.db	0	; CmdPortamentoOn
 	.db	0	; CmdPortamentoOff
 	.db	3	; CmdPitchModulation
-	.db	0	; CmdPitchModulationOff
 	.db	3	; CmdTremolo
-	.db	0	; CmdTremoloOff
 	.db	3	; CmdSubroutine
 	.db	0	; CmdSubroutineReturn
 	.db	0	; CmdSubroutineBreak
@@ -79,15 +72,13 @@ CmdLengthTable:
 	.db	1	; CmdRelativeTranspose
 	.db	2	; CmdPanFade
 	.db	2	; CmdPanVibration
-	.db	0	; CmdPanVibrationOff
-	.db	0	; CmdHWPitchModulationOn
-	.db	0	; CmdHWPitchModulationOff
 	.db	3	; CmdPitchEnvelope
-	.db	0	; CmdPitchEnvelopeOff
+	.db	1	; CmdCmdCallArg0
 
 ;--------------------------------------------------
 ; Command Include
 ;--------------------------------------------------
+.include	"CmdCmdCall.s"
 .include	"CmdSetInstrument.s"
 .include	"CmdVolume.s"
 .include	"CmdPanpot.s"

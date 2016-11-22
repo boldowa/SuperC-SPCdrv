@@ -53,9 +53,7 @@
 	CMD_PORTAM_ON		db
 	CMD_PORTAM_OFF		db
 	CMD_MODURATION		db
-	CMD_MODURATION_OFF	db
 	CMD_TREMOLO		db
-	CMD_TREMOLO_OFF		db
 	CMD_SUBROUTINE		db
 	CMD_SUBROUTINE_RETURN	db
 	CMD_SUBROUTINE_BREAK	db
@@ -67,13 +65,22 @@
 	CMD_REL_TRANSPOSE	db
 	CMD_PAN_FADE		db
 	CMD_PAN_VIBRATION	db
-	CMD_PAN_VIBRATION_OFF	db
-	CMD_HARDPM_ON		db
-	CMD_HARDPM_OFF		db
 	CMD_PITCH_ENVELOPE	db
-	CMD_PITCH_ENVELOPE_OFF	db
+	CMD_CMD_ARG0		db
 
 	SEQCMD_END		db
+.ende
+
+;------------------------------------------------
+; Sub-Commands
+;------------------------------------------------
+.enum 0
+	SCMD_MODURATION_OFF		db
+	SCMD_TREMOLO_OFF		db
+	SCMD_PAN_VIBRATION_OFF		db
+	SCMD_HWPM_ON			db
+	SCMD_HWPM_OFF			db
+	SCMD_PITCH_ENVELOPE_OFF		db
 .ende
 
 .printt "SEQCMD_START: 0x"
