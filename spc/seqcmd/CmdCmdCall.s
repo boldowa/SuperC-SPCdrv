@@ -20,7 +20,7 @@ CmdCmdCallArg0:
 	mov	a, !_SubCmdTable+y
 	mov	!_jmpTgt+1, a
 	mov	a, #0
-_jmpTgt
+_jmpTgt:
 	jmp	$0000
 
 _SubCmdTable:

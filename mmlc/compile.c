@@ -475,25 +475,25 @@ bool addSubroutineListData(stSubroutineList* subList, int depth, int track, int 
 /**
  * ラベルノードを作成する
  */
-stLabelNode* makeLabelNode(int label, int depth, int addr)
+stLabelNode* makeLabelNode(const stLabelNode* src)
 {
 	stLabelNode* node;
 
 	node = (stLabelNode*)malloc(sizeof(stLabelNode));
 	if(NULL != node)
 	{
-		node->label = label;
-		node->depth = depth;
-		node->addr = addr;
+		node->label = src->label;
+		node->depth = src->depth;
+		node->addr = src->addr;
 		node->left = NULL;
 		node->right = NULL;
 
-		node->lastoctave = -1;
-		node->lastticks = -1;
-		node->lastvelocity = -1;
-		node->lastgatetime = -1;
-		node->noteExists = false;
-		node->tieExists = false;
+		node->lastoctave = src->lastoctave;
+		node->lastticks = src->lastticks;
+		node->lastvelocity = src->lastvelocity;
+		node->lastgatetime = src->lastgatetime;
+		node->noteExists = src->noteExists;
+		node->tieExists = src->tieExists;
 	}
 	return node;
 }
@@ -501,7 +501,7 @@ stLabelNode* makeLabelNode(int label, int depth, int addr)
 /**
  * ラベルノードを挿入する
  */
-stLabelNode* insertLabelNode(stLabelNode* node, int label, int depth, int addr, MmlMan* mml, ErrorNode* compileErrList)
+stLabelNode* insertLabelNode(stLabelNode* node, const stLabelNode* src, MmlMan* mml, ErrorNode* compileErrList)
 {
 	/**
 	 * エラー
@@ -511,32 +511,32 @@ stLabelNode* insertLabelNode(stLabelNode* node, int label, int depth, int addr, 
 	/* 空ノードの場合、データ追加 */
 	if(NULL == node)
 	{
-		return makeLabelNode(label, depth, addr);
+		return makeLabelNode(src);
 	}
 
 	/* 同名ラベルの場合、上書きする */
-	if(node->label == label)
+	if(node->label == src->label)
 	{
 		/* 警告表示 */
 		newError(mml, compileErr, compileErrList);
 		compileErr->type = SyntaxError;
 		compileErr->level = ERR_WARN;
-		sprintf(compileErr->message, "Label (%d) redefined.", label);
+		sprintf(compileErr->message, "Label (%d) redefined.", src->label);
 		addError(compileErr, compileErrList);
 
 		/* データの上書き */
-		node->depth = depth;
-		node->addr = addr;
+		node->depth = src->depth;
+		node->addr = src->addr;
 		return node;
 	}
 
-	if(node->label > label)
+	if(node->label > src->label)
 	{
-		node->left = insertLabelNode(node->left, label, depth, addr, mml, compileErrList);
+		node->left = insertLabelNode(node->left, src, mml, compileErrList);
 	}
 	else
 	{
-		node->right = insertLabelNode(node->right, label, depth, addr, mml, compileErrList);
+		node->right = insertLabelNode(node->right, src, mml, compileErrList);
 	}
 	return node;
 }
@@ -1025,7 +1025,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 	/**
 	 * 最後の無名サブルーチン
 	 */
-	stLabelNode *latestSub;
+	stLabelNode latestSub;
 
 	/**
 	 * ラベルリスト
@@ -1103,6 +1103,10 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 	memset(&toneTable, 0, sizeof(Track));
 	memset(drumTable, 0, DRUMTABLE_LEN*DRUM_NOTE_NUMS);
 	memset(&toneTranspose, 0, sizeof(Track));
+
+	/* 最終ラベルデータの初期化 */
+	memset(&latestSub, 0, sizeof(stLabelNode));
+	latestSub.addr = -1;
 
 	while(mml->iseof == false)
 	{
@@ -1239,7 +1243,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 
 						note = TIE;
 
-						if(0 < loopDepth)
+						if(0 <= loopDepth)
 						{
 							lastSub[loopDepth].tieExists = true;
 						}
@@ -1295,7 +1299,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							}
 							note = ((octaveTmp-OCTAVE_MIN)*12 + scale) | 0x80;
 
-							if(0 < loopDepth)
+							if(0 <= loopDepth)
 							{
 								lastSub[loopDepth].noteExists = true;
 							}
@@ -1540,7 +1544,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					}
 
 					/* サブルーチン解析中は切り替え不可 */
-					if(0 < loopDepth)
+					if(0 <= loopDepth)
 					{
 						newError(mml, compileErr, compileErrList);
 						compileErr->type = SyntaxError;
@@ -2250,6 +2254,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 								isAbnormalState = false;
 								break;
 							}
+							putSeq(&tracks, CMD_CMD_ARG0, loopDepth, mml, compileErr);
 							putSeq(&tracks, SCMD_HWPM_ON, loopDepth, mml, compileErr);
 						}
 						isAbnormalState = false;
@@ -3119,6 +3124,13 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					lastSub[loopDepth].depth = loopDepth;
 					lastSub[loopDepth].addr = subaddr;
 					subCallAddr[loopDepth] = tracks.track[trk].ptr-4;
+					/* パラメータ類初期化 */
+					lastSub[loopDepth].lastoctave = -1;
+					lastSub[loopDepth].lastticks = -1;
+					lastSub[loopDepth].lastvelocity = -1;
+					lastSub[loopDepth].lastgatetime = -1;
+					lastSub[loopDepth].noteExists = false;
+					lastSub[loopDepth].tieExists = false;
 
 					/* サブルーチン呼び元記憶 */
 					if(false == addSubroutineListData(&subs, loopDepth, trk, tracks.track[trk].ptr-4))
@@ -3192,15 +3204,40 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					trk = (0>=loopDepth ? tracks.curTrack : TRACKS);
 					tracks.track[trk].data[subCallAddr[loopDepth]+1] = tempVal[0]-1;
 
+					/* サブルーチン終了時の値を記憶 */
+					if(0 > lastSub[loopDepth].lastoctave)
+					{
+						lastSub[loopDepth].lastoctave = tracks.curOctave[tracks.curTrack];
+						lastSub[loopDepth].lastticks = tracks.ticks[tracks.curTrack];
+						lastSub[loopDepth].lastvelocity = tracks.lastVelocity[tracks.curTrack];
+						lastSub[loopDepth].lastgatetime = tracks.lastGatetime[tracks.curTrack];
+					}
+					else
+					{
+						/* サブルーチン終了後の各種値の復元 */
+						if(true == lastSub[loopDepth].noteExists)
+						{
+							tracks.curOctave[tracks.curTrack] = lastSub[loopDepth].lastoctave;
+						}
+						tracks.ticks[tracks.curTrack] = lastSub[loopDepth].lastticks;
+						if( (true == lastSub[loopDepth].noteExists) || (true == lastSub[loopDepth].tieExists) )
+						{
+							tracks.velocity[tracks.curTrack] = lastSub[loopDepth].lastvelocity;
+							tracks.lastVelocity[tracks.curTrack] = lastSub[loopDepth].lastvelocity;
+							tracks.gatetime[tracks.curTrack] = lastSub[loopDepth].lastgatetime;
+							tracks.lastGatetime[tracks.curTrack] = lastSub[loopDepth].lastgatetime;
+						}
+					}
+
 					/* サブルーチンの使いまわしをセット */
 					if(0 > lastSub[loopDepth].label)
 					{
-						latestSub = &lastSub[loopDepth];
+						memcpy(&latestSub, &lastSub[loopDepth], sizeof(stLabelNode));
 					}
 					else
 					{
 						stLabelNode* node;
-						node = insertLabelNode(labels, lastSub[loopDepth].label, lastSub[loopDepth].depth, lastSub[loopDepth].addr, mml, compileErrList);
+						node = insertLabelNode(labels, &lastSub[loopDepth], mml, compileErrList);
 						if(NULL == node)
 						{
 							newError(mml, compileErr, compileErrList);
@@ -3214,15 +3251,6 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						{
 							labels = node;
 						}
-					}
-
-					/* サブルーチン終了時の値を記憶 */
-					if(0 > lastSub[loopDepth].lastoctave)
-					{
-						lastSub[loopDepth].lastoctave = tracks.curOctave[tracks.curTrack];
-						lastSub[loopDepth].lastticks = tracks.ticks[tracks.curTrack];
-						lastSub[loopDepth].lastvelocity = tracks.lastVelocity[tracks.curTrack];
-						lastSub[loopDepth].lastgatetime = tracks.lastGatetime[tracks.curTrack];
 					}
 
 					/* サブルーチン末端コマンド書き込み */
@@ -3286,7 +3314,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					addError(compileErr, compileErrList);
 
 					/* 未定義チェック */
-					if(NULL == latestSub)
+					if(0 > latestSub.addr)
 					{
 						newError(mml, compileErr, compileErrList);
 						compileErr->type = SyntaxError;
@@ -3319,26 +3347,26 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					/* サブルーチンコマンド挿入 */
 					putSeq(&tracks, CMD_SUBROUTINE, loopDepth, mml, compileErr);
 					putSeq(&tracks, (tempVal[0]-1), loopDepth, mml, compileErr);
-					putSeq(&tracks, latestSub->addr, loopDepth, mml, compileErr);
-					putSeq(&tracks, (latestSub->addr>>8), loopDepth, mml, compileErr);
+					putSeq(&tracks, latestSub.addr, loopDepth, mml, compileErr);
+					putSeq(&tracks, (latestSub.addr>>8), loopDepth, mml, compileErr);
 
 					/* サブルーチン終了後の各種値の復元 */
-					if(true == latestSub->noteExists)
+					if(true == latestSub.noteExists)
 					{
-						tracks.curOctave[tracks.curTrack] = latestSub->lastoctave;
+						tracks.curOctave[tracks.curTrack] = latestSub.lastoctave;
 					}
-					tracks.ticks[tracks.curTrack] = latestSub->lastticks;
-					if( (true == latestSub->noteExists) || (true == latestSub->tieExists) )
+					tracks.ticks[tracks.curTrack] = latestSub.lastticks;
+					if( (true == latestSub.noteExists) || (true == latestSub.tieExists) )
 					{
-						tracks.velocity[tracks.curTrack] = latestSub->lastvelocity;
-						tracks.lastVelocity[tracks.curTrack] = latestSub->lastvelocity;
-						tracks.gatetime[tracks.curTrack] = latestSub->lastgatetime;
-						tracks.lastGatetime[tracks.curTrack] = latestSub->lastgatetime;
+						tracks.velocity[tracks.curTrack] = latestSub.lastvelocity;
+						tracks.lastVelocity[tracks.curTrack] = latestSub.lastvelocity;
+						tracks.gatetime[tracks.curTrack] = latestSub.lastgatetime;
+						tracks.lastGatetime[tracks.curTrack] = latestSub.lastgatetime;
 					}
 
 					/* サブルーチン呼び元記憶　*/
 					trk = (0>loopDepth ? tracks.curTrack : TRACKS);
-					if(false == addSubroutineListData(&subs, latestSub->depth, trk, tracks.track[trk].ptr-4))
+					if(false == addSubroutineListData(&subs, latestSub.depth, trk, tracks.track[trk].ptr-4))
 					{
 						/* メモリ確保エラー */
 						newError(mml, compileErr, compileErrList); /* メモリ確保できなかった場合、たぶんこの処理もコケるのであまり意味ない */
@@ -3546,6 +3574,13 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				lastSub[loopDepth].depth = loopDepth;
 				lastSub[loopDepth].addr = subaddr;
 				subCallAddr[loopDepth] = tracks.track[trk].ptr-4;
+				/* パラメータ類初期化 */
+				lastSub[loopDepth].lastoctave = -1;
+				lastSub[loopDepth].lastticks = -1;
+				lastSub[loopDepth].lastvelocity = -1;
+				lastSub[loopDepth].lastgatetime = -1;
+				lastSub[loopDepth].noteExists = false;
+				lastSub[loopDepth].tieExists = false;
 
 				/* サブルーチン呼び元記憶 */
 				if(false == addSubroutineListData(&subs, loopDepth, trk, tracks.track[trk].ptr-4))
