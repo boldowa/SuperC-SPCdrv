@@ -33,7 +33,8 @@
 	seqPointerH	dsb	TRACKS
 	trackSysBits	dsb	TRACKS
 	; bit0     - is next note tie
-	; bit1~3   - not use
+	; bit1,2   - not use
+	; bit3     - not-keyoff
 	; bit4     - H/W modulation
 	; bit5     - noise
 	; bit6     - echo

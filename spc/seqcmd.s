@@ -99,6 +99,7 @@ CmdLengthTable:
 .include	"CmdPanVibration.s"
 .include	"CmdHWPitchModulation.s"
 .include	"CmdPitchEnvelope.s"
+.include	"CmdNotKeyOff.s"
 
 .ends
 

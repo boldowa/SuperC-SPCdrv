@@ -1,5 +1,5 @@
 /**
- * SuperC SeqCmd XXXXX
+ * SuperC SeqCmd Sub-command call
  *
  *
  */
@@ -30,10 +30,11 @@ _SubCmdTable:
 	.dw	CmdHWPitchModulationOn
 	.dw	CmdHWPitchModulationOff
 	.dw	CmdPitchEnvelopeOff
+	.dw	CmdNotKeyOffOn
+	.dw	CmdNotKeyOffOff
 
 ;------------------------------
 ; local values undefine
 ;------------------------------
-;.undefine	XXXXX
 
 

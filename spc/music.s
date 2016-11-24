@@ -44,7 +44,7 @@ _TrackLoop
 	bra	_Loop
 _Release:
 	mov	a, tmpTrackSysBits
-	and	a, #(TRKFLG_TIE | TRKFLG_PORTAM)
+	and	a, #(TRKFLG_TIE | TRKFLG_PORTAM | TRKFLG_NKOF)
 	bne	_Loop
 	call	ReleaseChannel
 	bra	_Loop

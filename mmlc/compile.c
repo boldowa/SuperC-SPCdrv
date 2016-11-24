@@ -83,6 +83,27 @@ enum subcommandlist{
 	SCMD_HWPM_ON,
 	SCMD_HWPM_OFF,
 	SCMD_PITCH_ENVELOPE_OFF,
+	SCMD_NOT_KEYOFF_ON,
+	SCMD_NOT_KEYOFF_OFF,
+
+	SCMD_NOT_FOUND
+};
+
+/* サブコマンド引数長テーブル */
+static struct {
+	int	command;
+	int	length;
+} subCommandArgcTable[] = {
+	{ SCMD_MODURATION_OFF,		0  },
+	{ SCMD_TREMOLO_OFF,		0  },
+	{ SCMD_PAN_VIBRATION_OFF,	0  },
+	{ SCMD_HWPM_ON,			0  },
+	{ SCMD_HWPM_OFF,		0  },
+	{ SCMD_PITCH_ENVELOPE_OFF,	0  },
+	{ SCMD_NOT_KEYOFF_ON,		0  },
+	{ SCMD_NOT_KEYOFF_OFF,		0  },
+	/*---------------------------------*/
+	{ SCMD_NOT_FOUND,		-1 }
 };
 
 /**
@@ -936,6 +957,56 @@ bool putSeq(TracksData *tracks, const byte data, int loopDepth, MmlMan *mml, Err
 		tracks->track[tracks->curTrack].data[tracks->track[tracks->curTrack].ptr++] = data;
 	}
 
+	return true;
+}
+
+bool putSubCommand(TracksData *tracks, const byte scmd, int loopDepth, MmlMan *mml, ErrorNode* compileErrList)
+{
+	/**
+	 * エラー
+	 */
+	ErrorNode* compileErr = NULL;
+
+	/**
+	 * カウンタ
+	 */
+	int i;
+
+	for(i=0; SCMD_NOT_FOUND!=subCommandArgcTable[i].command; i++)
+	{
+		if(scmd == subCommandArgcTable[i].command)
+		{
+			break;
+		}
+	}
+	if(SCMD_NOT_FOUND == subCommandArgcTable[i].command)
+	{
+		newError(mml, compileErr, compileErrList);
+		compileErr->type = ProgramError;
+		compileErr->level = ERR_ERROR;
+		sprintf(compileErr->message, "Invalid Sub-command(%d).", scmd);
+		addError(compileErr, compileErrList);
+		return false;
+	}
+
+	switch(subCommandArgcTable[i].length)
+	{
+		case 0:
+			putSeq(tracks, CMD_CMD_ARG0, loopDepth, mml, compileErr);
+			break;
+		/*--- 以下、該当コマンド無しの為未実装 ---------------------------*/
+		case 1:
+		case 2:
+		default:
+			newError(mml, compileErr, compileErrList);
+			compileErr->type = ProgramError;
+			compileErr->level = ERR_ERROR;
+			sprintf(compileErr->message, "Invalid Sub-command length(cmd=%d, len=%d).", scmd, subCommandArgcTable[i].length);
+			addError(compileErr, compileErrList);
+			return false;
+	}
+
+	putSeq(tracks, scmd, loopDepth, mml, compileErr);
 	return true;
 }
 
@@ -2231,6 +2302,35 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						break;
 
 					/******************************************/
+					/* キーオフ有無効切替                     */
+					/******************************************/
+					case 'k':
+						{
+							int nums;
+							mmlgetforward(mml);
+							nums = getNumbers(mml, false, tempVal, compileErrList);
+							if(1 < nums)
+							{
+								newError(mml, compileErr, compileErrList);
+								compileErr->type = SyntaxError;
+								compileErr->level = ERR_ERROR;
+								sprintf(compileErr->message, "Invalid not-key-off specify.");
+								addError(compileErr, compileErrList);
+								continue;
+							}
+							if(1 == nums && tempVal[0] == 0)
+							{
+								putSubCommand(&tracks, SCMD_NOT_KEYOFF_OFF, loopDepth, mml, compileErr);
+								isAbnormalState = false;
+								break;
+							}
+							putSubCommand(&tracks, SCMD_NOT_KEYOFF_ON, loopDepth, mml, compileErr);
+						}
+						isAbnormalState = false;
+						break;
+
+
+					/******************************************/
 					/* H/W ピッチモジュレーション有無効切替   */
 					/******************************************/
 					case 'm':
@@ -2249,13 +2349,11 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							}
 							if(1 == nums && tempVal[0] == 0)
 							{
-								putSeq(&tracks, CMD_CMD_ARG0, loopDepth, mml, compileErr);
-								putSeq(&tracks, SCMD_HWPM_OFF, loopDepth, mml, compileErr);
+								putSubCommand(&tracks, SCMD_HWPM_OFF, loopDepth, mml, compileErr);
 								isAbnormalState = false;
 								break;
 							}
-							putSeq(&tracks, CMD_CMD_ARG0, loopDepth, mml, compileErr);
-							putSeq(&tracks, SCMD_HWPM_ON, loopDepth, mml, compileErr);
+							putSubCommand(&tracks, SCMD_HWPM_ON, loopDepth, mml, compileErr);
 						}
 						isAbnormalState = false;
 						break;
@@ -2334,8 +2432,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							if((nums == 1 && tempVal[0] == 0))
 							{
 								/* トレモロOFFコマンド挿入 */
-								putSeq(&tracks, CMD_CMD_ARG0, loopDepth, mml, compileErr);
-								putSeq(&tracks, SCMD_TREMOLO_OFF, loopDepth, mml, compileErr);
+								putSubCommand(&tracks, SCMD_TREMOLO_OFF, loopDepth, mml, compileErr);
 								isAbnormalState = false;
 								break;
 							}
@@ -2719,9 +2816,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							continue;
 						}
 
-						/* パンコマンド挿入 */
-						putSeq(&tracks, CMD_CMD_ARG0, loopDepth, mml, compileErr);
-						putSeq(&tracks, SCMD_PAN_VIBRATION_OFF, loopDepth, mml, compileErr);
+						/* パン振動OFFコマンド挿入 */
+						putSubCommand(&tracks, SCMD_PAN_VIBRATION_OFF, loopDepth, mml, compileErr);
 						isAbnormalState = false;
 						break;
 					}
@@ -2862,8 +2958,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 					if((nums == 1 && tempVal[0] == 0))
 					{
 						/* モジュレーションOFFコマンド挿入 */
-						putSeq(&tracks, CMD_CMD_ARG0, loopDepth, mml, compileErr);
-						putSeq(&tracks, SCMD_MODURATION_OFF, loopDepth, mml, compileErr);
+						putSubCommand(&tracks, SCMD_MODURATION_OFF, loopDepth, mml, compileErr);
 						break;
 					}
 					if(2 > nums || 3 < nums)
