@@ -9,6 +9,7 @@
 #include "mmlman.h"
 #include "binaryman.h"
 #include "spc.h"
+#include "snsf.h"
 #include "errorman.h"
 #include "timefunc.h"
 #include "pathfunc.h"
@@ -20,12 +21,19 @@
 /************************************************************/
 enum{
 	OPT_Nolink = 1,
+	OPT_SNSF,
 	OPT_Debug,
 	OPT_Help,
 	OPT_Version,
 };
+typedef enum{
+	MAKE_SPC = 0,
+	MAKE_BIN,
+	MAKE_SNSF,
+}MakeType;
 static const Option Opt[] = {
 	{OPT_Nolink, "compileonly", 'c', "compile only, not make spc"},
+	{OPT_SNSF, "snsf", 's', "generate snsf file."},
 	{OPT_Debug, "debug", 'd', "verbose debug info"},
 	{OPT_Help, "help", '?', "show usage"},
 	{OPT_Version, "version", 'v', "show version"},
@@ -34,7 +42,7 @@ static const Option Opt[] = {
 
 bool helped = false;
 bool vdebug = false; /* TODO: リリース時はfalseにする */
-bool nolink = false;
+MakeType type = MAKE_SPC;
 char* in_file_name = NULL;
 char* out_file_name = NULL;
 
@@ -117,7 +125,10 @@ bool parseOption(const int argc, const char **argv)
 				vdebug = true;
 				break;
 			case OPT_Nolink:
-				nolink = true;
+				type = MAKE_BIN;
+				break;
+			case OPT_SNSF:
+				type = MAKE_SNSF;
 				break;
 			default:
 				break;
@@ -309,42 +320,67 @@ int main(const int argc, const char** argv)
 		return -1;
 	}
 
-	if(false == nolink)
+	switch(type)
 	{
-		/* SPCデータを生成します */
-		if(false == makeSPC(spcBuffer, &spcCore, &mml, &binary, brrList))
+		case MAKE_SPC:
 		{
-			puterror("makeSPC failed.");
-			deleteBrrListData(brrList);
-			mmlclose(&mml);
-			binfree(&binary);
-			fclose(outf);
-			freecore(&spcCore);
-			remove(out_file_name);
-			return -1;
-		}
+			/* SPCデータを生成します */
+			if(false == makeSPC(spcBuffer, &spcCore, &mml, &binary, brrList))
+			{
+				puterror("makeSPC failed.");
+				deleteBrrListData(brrList);
+				mmlclose(&mml);
+				binfree(&binary);
+				fclose(outf);
+				freecore(&spcCore);
+				remove(out_file_name);
+				return -1;
+			}
 
-		/* SPCデータを書き出します */
-		/* fwrite(binary.data, sizeof(byte), binary.dataInx, outf); */
-		fwrite(spcBuffer, sizeof(byte), 0x10200, outf);
-	}
-	else
-	{
-		int sz;
-		sz = makeBin(spcBuffer, &spcCore, &mml, &binary, brrList);
-		if(0 == sz)
+			/* SPCデータを書き出します */
+			/* fwrite(binary.data, sizeof(byte), binary.dataInx, outf); */
+			fwrite(spcBuffer, sizeof(byte), 0x10200, outf);
+		}
+		break;
+
+		case MAKE_BIN:
 		{
-			puterror("makeBin failed.");
-			deleteBrrListData(brrList);
-			mmlclose(&mml);
-			binfree(&binary);
-			fclose(outf);
-			freecore(&spcCore);
-			remove(out_file_name);
-			return -1;
-		}
+			int sz;
+			sz = makeBin(spcBuffer, &spcCore, &mml, &binary, brrList);
+			if(0 == sz)
+			{
+				puterror("makeBin failed.");
+				deleteBrrListData(brrList);
+				mmlclose(&mml);
+				binfree(&binary);
+				fclose(outf);
+				freecore(&spcCore);
+				remove(out_file_name);
+				return -1;
+			}
 
-		fwrite(spcBuffer, sizeof(byte), sz, outf);
+			fwrite(spcBuffer, sizeof(byte), sz, outf);
+		}
+		break;
+
+		case MAKE_SNSF:
+		{
+			int sz;
+			sz = makeSNSF(spcBuffer, &spcCore, &mml, &binary, brrList);
+			if(0 == sz)
+			{
+				puterror("makeSNSF failed.");
+				deleteBrrListData(brrList);
+				mmlclose(&mml);
+				binfree(&binary);
+				fclose(outf);
+				freecore(&spcCore);
+				remove(out_file_name);
+				return -1;
+			}
+
+			fwrite(spcBuffer, sizeof(byte), sz, outf);
+		}
 	}
 	fclose(outf);
 

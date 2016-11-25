@@ -2,8 +2,8 @@
 # Makefile for SuperC mml compiler
 ############################################################
 
-#DEBUG	= 1
-CLANG	= 1
+DEBUG	= 1
+#CLANG	= 1
 WIN32	= 1
 x86	= 1
 
@@ -29,7 +29,7 @@ LD	:= gcc
 endif
 endif
 
-LDFLAGS	:=
+LDFLAGS	:= -lz
 
 ifdef DEBUG
 CFLAGS	= -Wall -g -O0 -DDEBUG
@@ -39,36 +39,49 @@ LDFLAGS	+= -s
 endif
 
 ifdef WIN32
-CFLAGS += -D_WIN32
-LDFLAGS += -D_WIN32
+CFLAGS += -D_WIN32 -I../../zlib-1.2.8
+LDFLAGS += -D_WIN32 -L../../zlib-1.2.8
+OBJCOPY	:= i686-w64-mingw32-objcopy
+else
+OBJCOPY	:= objcopy
+endif
+
 ifdef x86
 CFLAGS += -m32
 LDFLAGS += -m32
-endif
+OBJFLAGS = -I binary -O elf32-i386 -B i386
+else
+OBJFLAGS = -I binary -O elf64-x86-64 -B i386
 endif
 
 #LDFLAGS	= -Wl,--gc-sections -Wl,--no-define-common -Wl,--discard-all
 
-OFILES	 = mmlc.o compile.o mmlman.o binaryman.o errorman.o spc.o timefunc.o pathfunc.o
-OFILES	+= md5.o
+OFILES	 = mmlc.o compile.o mmlman.o binaryman.o errorman.o spc.o timefunc.o pathfunc.o snsf.o
+OFILES	+= md5.o snes.o
 PRECOMPILE_HEADER = gstdafx.h
 
 .PHONY: all clean
 all: $(TARGET)
 
 $(TARGET): $(PRECOMPILE_HEADER).gch $(OFILES) Makefile
-	$(LD) $(LDFLAGS) $(OFILES) -o $@
+	$(LD) $(OFILES) $(LDFLAGS) -o $@
 
 
 .SUFFIXES: .c .o
 .c.o:
 	$(CC) -MMD -c $(CFLAGS) $<
 
+snes.o: snes.bin
+	$(OBJCOPY) $(OBJFLAGS) $< $@
+
+snes.bin: ../snes/snes.bin
+	make -C ../snes && cp $< $@
+
 $(PRECOMPILE_HEADER).gch: $(PRECOMPILE_HEADER)
 	$(CC) $(CFLAGS) $<
 
 clean:
-	rm -f $(TARGET) $(OFILES) $(OFILES:.o=.d) $(PRECOMPILE_HEADER).gch
+	rm -f $(TARGET) $(OFILES) $(OFILES:.o=.d) $(PRECOMPILE_HEADER).gch snes.bin
 
 -include *.d
 

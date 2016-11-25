@@ -439,6 +439,7 @@ int makeBin(byte* bin, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData*
 	/* データサイズを書き込みます */
 	*(word*)&bin[dataHead] = datasize;
 
+	/* データ末端を書き込みます */
 	*(word*)&bin[binInx] = 0;
 	binInx += 2;
 	*(word*)&bin[binInx] = core->location;

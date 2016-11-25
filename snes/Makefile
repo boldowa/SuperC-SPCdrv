@@ -7,21 +7,21 @@
 AS   = wla-65816
 
 LINK = wlalink
-LFLAGS = -r -d -v -S
+LFLAGS = -b -d -v -S
 ASFLAGS =
 
 
-TARGET = SuperC.smc
+TARGET = snes.bin
 LIBS =
 OBJS = main.o interrupt.o spcdrv.o
 
 
 
-#ifdef MAKESMC
-#  ASFLAGS += -D _MAKESPC
-#  LFLAGS = -r -d -v -S
-#  TARGET := $(TARGET:.bin=.smc)
-#endif
+ifdef MAKESMC
+  ASFLAGS += -D _MAKESMC
+  LFLAGS = -r -d -v -S
+  TARGET := $(TARGET:.bin=.smc)
+endif
 
 
 .PHONY: all clean
@@ -34,8 +34,8 @@ all: $(TARGET) tags
 $(TARGET): $(OBJS) $(LIBS) linkfile Makefile
 	$(LINK) $(LFLAGS) linkfile $@
 
-#spc:
-#	make MAKESPC=1
+smc:
+	make MAKESMC=1
 
 .SUFFIXES: .o .lib .s .asm
 .s.o:
@@ -73,5 +73,5 @@ tags: $(OBJS) $(LIBS) Makefile
 	fi
 
 clean:
-	rm -rf $(TARGET:.spc=.bin) $(TARGET:.bin=.spc) $(TARGET:.bin=.sym) $(OBJS) $(LIBS) $(OBJS:.o=.d) $(LIBS:.lib=.d) linkfile
+	rm -rf $(TARGET:.spc=.bin) $(TARGET:.bin=.smc) $(TARGET:.bin=.sym) $(OBJS) $(LIBS) $(OBJS:.o=.d) $(LIBS:.lib=.d) linkfile
 

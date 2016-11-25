@@ -19,7 +19,11 @@
 ;.rombanksize $10000
 .rombanksize $8000
 ;.rombanks 8
+.ifdef _MAKESMC
 .rombanks 16
+.else
+.rombanks 4
+.endif
 ;.rombanks 64
 
 .endif

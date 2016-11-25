@@ -21,6 +21,7 @@
  */
 void setDateStr(char*);
 void setDateStrForSPC(char*);
+void setYear(char*);
 void getTime(TIME*);
 double getTimeToPass(TIME*, TIME*);
 
