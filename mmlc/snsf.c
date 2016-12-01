@@ -8,9 +8,9 @@
 #include "compile.h"
 #include "timefunc.h"
 #include "spc.h"
+#include "address.h"
 #include "snsf.h"
 
-#define ROMSIZE 0x8000*4
 
 /**
  * snesバイナリーデータポインタ
@@ -55,46 +55,52 @@ void calcChecksum(byte* data, int size)
 	*(word*)&data[0x7fde] = checksum;
 }
 
-
 /**
- * snsfデータの生成
+ * SNESデータの生成
  */
-int makeSNSF(byte* snsf, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData* blist)
+int buildSnes(byte* snes, stSpcCore* core, MmlMan* mml, BinMan* seq, stBrrListData* blist)
 {
-	byte snes[ROMSIZE+8];
-	byte* bin;
 	int esa;
-	int binInx = 0;
-	int datasize = 0;
-	int dataDest = 0;
-	int seqbase = 0;
-	int dataHead = 0;
-	int dirtbl = 0;;
-	FILE *brr;
-	stBrrListData *blread;
-	byte brrBuf[1024];
-	uLong compressResult;
-	uLong dataLength;
-	int tagIndex;
 
 	byte* snesStart;
 	int snesLen;
 
+	byte* coreData;
+	byte* brrSetNumberTable;
+	byte* brrSetAddressTable;
+	byte* brrDataAddressTable;
+	byte* seqDataAddressTable;
+	byte* brrSetData;
+	int mdPtr = 0;
+	int coreLocOnSnes;
+
+	int brrCounter=1;
+	stBrrListData *blread;
+	byte brrBuf[1024];
+
+	int snesSeqLoc;
+
 	snesStart = (byte*)&binary_snes_bin_start;
 	snesLen = (int)&binary_snes_bin_size;
 
+	/* データ書き込み用テーブル初期化 */
+	brrSetNumberTable = &snes[0x8000];
+	brrSetAddressTable = &snes[0x8100];
+	brrDataAddressTable = &snes[0x8300];
+	seqDataAddressTable = &snes[0x8600];
+	brrSetData = &snes[0x8900];
+	mdPtr = 0x10000;
+
 	/* snesデータの初期化 */
-	memset(snes, 0xff, ROMSIZE+8);
+	memset(snes, 0xff, ROMSIZE);
 
-	/* snesデータコピー */
-	memcpy(snes+8, snesStart, snesLen);
+	/* snesデータをコピー */
+	memcpy(snes, snesStart, snesLen);
 
-	/* snsf用ヘッダ */
-	*(int*)&snes[0] = 0;		/* dest location */
-	*(int*)&snes[4] = ROMSIZE;	/* data size */
-
-	/* binary書き込み先 */
-	bin = &snes[0x8000+8];
+	/* bank0末端に書かれた情報から、コア挿入先を取得します */
+	coreLocOnSnes = snes2pc(*(int*)&snes[0x7fbd] & 0x00ffffff);
+	putdebug("core on snes: 0x%06x", pc2snes(coreLocOnSnes));
+	coreData = &snes[coreLocOnSnes];
 
 	/* ESAを決定します */
 	esa = (core->location + core->size);
@@ -104,29 +110,26 @@ int makeSNSF(byte* snsf, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListDat
 		esa &= 0xff00;
 	}
 
-	/* DIRテーブル位置を算出します */
-	dirtbl = (core->dir - core->location +4);
+	/* SPCドライバプログラムを書き出します */
+	*(word*)&coreData[0] = core->size;
+	*(word*)&coreData[2] = core->location;
+	memcpy(&coreData[4], core->data, core->size);
+	/* ESA値を更新します                        */
+	/* (※SPCドライバのmake段階で設定できてりゃ */
+	/*  こんなこと必要ないんですけど…          */
+	coreData[core->esaLoc-core->location+4] = (esa >> 8);
+	/* データ末端を書き出します */
+	*(word*)&coreData[core->size+4] = 0;			/* size = 0      */
+	*(word*)&coreData[core->size+6] = core->location;	/* boot = 0x???? */
 
-	/* コアデータを書き出します */
-	*(word*)&bin[0] = core->size;
-	*(word*)&bin[2] = core->location;
-	memcpy(&bin[4], core->data, core->size);
-	binInx = core->size + 4;
-
-	/* ESA値を書き換えます */
-	bin[core->esaLoc-core->location+4] = (esa >> 8);
-
-	/* データ書き込み先を決定します */
-	dataDest = esa + (mml->maxEDL * 0x800);
-	if(0 == mml->maxEDL)
-	{
-		dataDest = esa + 4;
-	}
-
-	dataHead = binInx;
-	binInx += 2;
-	*(word*)&bin[binInx] = dataDest;
-	binInx += 2;
+	/*----------------------------------------------*/
+	/* 以下、SNESデータの構築を行う処理             */
+	/* SNSFで鳴るよう適当に構築する                 */
+	/*----------------------------------------------*/
+	brrSetNumberTable[1] = 1;			/* BRRセット とりあえず1番を使う */
+	*(word*)&brrSetAddressTable[2] = 0x8900;	/* BRRセット1 = 0x8900 に格納    */
+	brrSetData[0] = mml->maxEDL;			/* 曲の初期EDL値(EDLのMAX値) */
+	brrSetData++;
 
 	/* BRRデータを書き出します */
 	blread = blist;
@@ -135,11 +138,16 @@ int makeSNSF(byte* snsf, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListDat
 		int brrsize;
 		word brrLoop;
 		int readLen;
+		int snesBrrLoc;
+		FILE *brr;
 
 		brr = fopen(blread->fname, "rb");
 		if(brr == NULL)
 		{
-			return false;
+			/* BRRファイル読み込みエラー */
+			/* mmlコンパイルに成功している場合は、 */
+			/* このルートに来ることはまずありえない */
+			return 0;
 		}
 
 		brrsize = fsize(brr);
@@ -154,64 +162,79 @@ int makeSNSF(byte* snsf, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListDat
 			puterror("makeSNSF: BRR file size error (%s).", blread->fname);
 			return 0;
 		}
+		/*
 		if(0x10000 <= ((brrsize-2)+dataDest))
 		{
 			puterror("makeSNSF: Insert data size is too big.");
 			return 0;
 		}
+		*/
 
+		/* データ位置 */
+		brrSetData[0] = brrCounter++;
+		brrSetData++;
+		snesBrrLoc = pc2snes(mdPtr);
+		*(word*)&brrDataAddressTable[3] = (snesBrrLoc&0xffff);
+		brrDataAddressTable[5] = (snesBrrLoc>>16);
+		brrDataAddressTable += 3;
 		/* BRRループヘッダ読み出し */
 		fread(&brrLoop, sizeof(word), 1, brr);
-		brrLoop += dataDest;
+		*(word*)&snes[mdPtr] = brrLoop;
+		*(word*)&snes[mdPtr+2] = brrsize-2;
+		mdPtr += 4;
 
-		/* DIRテーブルの書き出し */
-		*(word*)&bin[dirtbl + (blread->brrInx*4)] = dataDest;
-		*(word*)&bin[dirtbl + (blread->brrInx*4) + 2] = brrLoop;
 		/* BRRデータの追加 */
 		while(0 != (readLen = fread(brrBuf, sizeof(byte), 1024, brr)))
 		{
-			memcpy(&bin[binInx], brrBuf, readLen);
-			binInx += readLen;
-			dataDest += readLen;
-			datasize += readLen;
+			memcpy(&snes[mdPtr], brrBuf, readLen);
+			mdPtr += readLen;
 		}
 
 		fclose(brr);
 		blread = blread->next;
 	}
+	brrSetData[0] = 0;	/* 末端 */
 
-	/* シーケンスデータを書き出します */
-	seqbase = dataDest;
-	if(0x10000 <= (seq->dataInx+dataDest))
-	{
-		puterror("makeSNSF: Insert data size is too big.");
-		return 0;
-	}
-	memcpy(&bin[binInx], seq->data, seq->dataInx);
-	binInx += seq->dataInx;
-	datasize += seq->dataInx;
-	*(word*)&bin[core->seqBasePoint-core->location+4] = seqbase;
+	putdebug("[seq_loc_pc] 0x%06x", mdPtr);
+	snesSeqLoc = pc2snes(mdPtr);
+	putdebug("[seq_loc_snes] 0x%06x", snesSeqLoc);
+	*(word*)&seqDataAddressTable[3] = (snesSeqLoc&0xffff);
+	seqDataAddressTable[5] = (snesSeqLoc>>16);
 
-	/* データサイズを書き込みます */
-	*(word*)&bin[dataHead] = datasize;
-
-	*(word*)&bin[binInx] = 0;
-	binInx += 2;
-	*(word*)&bin[binInx] = core->location;
-	binInx += 2;
+	*(word*)&snes[mdPtr] = seq->dataInx;
+	mdPtr += 2;
+	memcpy(&snes[mdPtr], seq->data, seq->dataInx);
 
 	/* チェックサムを更新します */
-	calcChecksum(&snes[8], ROMSIZE);
+	calcChecksum(snes, ROMSIZE);
 
-#ifdef DEBUG
+	return 1;
+}
+
+
+/**
+ * snsfデータの生成
+ */
+int makeSNSF(byte* snsf, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData* blist)
+{
+	/* snsf圧縮用データ作成領域 */
+	byte snes[ROMSIZE+8];
+
+	/* SNSF情報 */
+	uLong compressResult;
+	uLong dataLength;
+	int tagIndex = 0;
+
+	/* snsf用ヘッダ書き込み */
+	*(int*)&snes[0] = 0;		/* dest location */
+	*(int*)&snes[4] = ROMSIZE;	/* data size */
+
+	/* ROMデータの構築 */
+	if(0 == buildSnes(&snes[8], core, mml, seq, blist))
 	{
-		FILE *of;
-
-		of = fopen("a.smc", "wb");
-		fwrite(snes+8, ROMSIZE+8, 1, of);
-		fclose(of);
+		/* データ構築失敗 */
+		return 0;
 	}
-#endif
 
 	/* snsfデータ情報を作成します */
 	memcpy(&snsf[0], "PSF", 3);	/* 0x0000 - 0x0002 : PSF Header                      */
@@ -233,22 +256,37 @@ int makeSNSF(byte* snsf, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListDat
 	*(unsigned int*)&snsf[12] = crc32(crc32(0L, Z_NULL, 0), &snsf[0x10], dataLength);
 
 	/*----- タグデータの書き込み -----*/
+	tagIndex = 0x10 + dataLength;
 
 	/* タイトル */
-	tagIndex = 0x10 + dataLength;
-	sprintf((char*)&snsf[tagIndex], "[TAG]title=%s", mml->spcTitle);
-	tagIndex += strlen((char*)&snsf[tagIndex]);
-	snsf[tagIndex++] = '\xa';
+	if(0 == strcmp("", mml->spcTitle))
+	{
+		sprintf((char*)&snsf[tagIndex], "[TAG]title=%s", mml->fname);
+		tagIndex += strlen((char*)&snsf[tagIndex]);
+		snsf[tagIndex++] = '\xa';
+	}
+	else
+	{
+		sprintf((char*)&snsf[tagIndex], "[TAG]title=%s", mml->spcTitle);
+		tagIndex += strlen((char*)&snsf[tagIndex]);
+		snsf[tagIndex++] = '\xa';
+	}
 
 	/* アーティスト */
-	sprintf((char*)&snsf[tagIndex], "artist=%s", mml->spcComposer);
-	tagIndex += strlen((char*)&snsf[tagIndex]);
-	snsf[tagIndex++] = '\xa';
+	if(0 != strcmp("", mml->spcComposer))
+	{
+		sprintf((char*)&snsf[tagIndex], "artist=%s", mml->spcComposer);
+		tagIndex += strlen((char*)&snsf[tagIndex]);
+		snsf[tagIndex++] = '\xa';
+	}
 
 	/* ゲームタイトル */
-	sprintf((char*)&snsf[tagIndex], "game=%s", mml->spcGame);
-	tagIndex += strlen((char*)&snsf[tagIndex]);
-	snsf[tagIndex++] = '\xa';
+	if(0 != strcmp("", mml->spcGame))
+	{
+		sprintf((char*)&snsf[tagIndex], "game=%s", mml->spcGame);
+		tagIndex += strlen((char*)&snsf[tagIndex]);
+		snsf[tagIndex++] = '\xa';
+	}
 
 	/* 年 */
 	sprintf((char*)&snsf[tagIndex], "year=");
@@ -258,14 +296,20 @@ int makeSNSF(byte* snsf, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListDat
 	snsf[tagIndex++] = '\xa';
 
 	/* コメント */
-	sprintf((char*)&snsf[tagIndex], "comment=%s", mml->spcComment);
-	tagIndex += strlen((char*)&snsf[tagIndex]);
-	snsf[tagIndex++] = '\xa';
+	if(0 != strcmp("", mml->spcComment))
+	{
+		sprintf((char*)&snsf[tagIndex], "comment=%s", mml->spcComment);
+		tagIndex += strlen((char*)&snsf[tagIndex]);
+		snsf[tagIndex++] = '\xa';
+	}
 
 	/* 作成者 */
-	sprintf((char*)&snsf[tagIndex], "snsfby=%s", mml->spcDumper);
-	tagIndex += strlen((char*)&snsf[tagIndex]);
-	snsf[tagIndex++] = '\xa';
+	if(0 != strcmp("", mml->spcDumper))
+	{
+		sprintf((char*)&snsf[tagIndex], "snsfby=%s", mml->spcDumper);
+		tagIndex += strlen((char*)&snsf[tagIndex]);
+		snsf[tagIndex++] = '\xa';
+	}
 
 	/* 再生時間 */
 	sprintf((char*)&snsf[tagIndex], "length=%d", mml->playingTime);
@@ -277,6 +321,7 @@ int makeSNSF(byte* snsf, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListDat
 	tagIndex += strlen((char*)&snsf[tagIndex]);
 	/* snsf[tagIndex++] = '\xa'; */
 
+	/* snsfデータサイズ(タグ書き込み先末端)を返す */
 	return tagIndex;
 }
 

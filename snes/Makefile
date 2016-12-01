@@ -13,7 +13,7 @@ ASFLAGS =
 
 TARGET = snes.bin
 LIBS =
-OBJS = main.o interrupt.o spcdrv.o
+OBJS = main.o interrupt.o spcdrv.o mdata.o
 
 
 

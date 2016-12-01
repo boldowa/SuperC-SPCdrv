@@ -2,8 +2,8 @@
 # Makefile for SuperC mml compiler
 ############################################################
 
-DEBUG	= 1
-#CLANG	= 1
+#DEBUG	= 1
+CLANG	= 1
 WIN32	= 1
 x86	= 1
 
@@ -56,7 +56,7 @@ endif
 
 #LDFLAGS	= -Wl,--gc-sections -Wl,--no-define-common -Wl,--discard-all
 
-OFILES	 = mmlc.o compile.o mmlman.o binaryman.o errorman.o spc.o timefunc.o pathfunc.o snsf.o
+OFILES	 = mmlc.o compile.o mmlman.o binaryman.o errorman.o spc.o timefunc.o pathfunc.o snsf.o address.o
 OFILES	+= md5.o snes.o
 PRECOMPILE_HEADER = gstdafx.h
 
@@ -75,7 +75,10 @@ snes.o: snes.bin
 	$(OBJCOPY) $(OBJFLAGS) $< $@
 
 snes.bin: ../snes/snes.bin
-	make -C ../snes && cp $< $@
+	cp $< $@
+
+../snes/snes.bin:
+	make -C ../snes
 
 $(PRECOMPILE_HEADER).gch: $(PRECOMPILE_HEADER)
 	$(CC) $(CFLAGS) $<

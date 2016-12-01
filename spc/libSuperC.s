@@ -20,4 +20,5 @@
 .include "GetFreeCh.s"
 .include "mul.s"
 .include "div.s"
+.include "timer.s"
 

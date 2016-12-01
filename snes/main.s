@@ -9,6 +9,16 @@
 .bank 0
 .org 0
 .section "MAIN" force
+;---------------------------------------
+; mini-snsf対応用
+;   "00 00 00 00 00 00 00 01 xx"の
+;   データのmini-snsfを作成することで、
+;   読み出す曲番号を変更できるように
+;   しておく。
+;---------------------------------------
+LoadMusicNumber:
+	.db	1	; デフォルト曲番号: 1
+
 Main:
 	sei
 	lda.b	#1
@@ -41,8 +51,11 @@ Main:
 	sta.b	Scratch+2
 	jsr	UploadSPCDriver
 
-	rep	#4
-	cli
+	lda.w	LoadMusicNumber
+	jsr	TransportMusic
+
+	rep	#4			; bit2 clear ... 割り込み許可
+	cli				; 割り込み許可
 	lda.b	#$80
 	sta.w	$4200
 -	bra	-

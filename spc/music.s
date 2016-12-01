@@ -835,6 +835,7 @@ CmdSetFIR:
 /* シーケンスの初期化                   */
 /****************************************/
 InitSequenceData:
+	; テーブル初期化
 	mov	a, #0
 	mov	y, a
 	mov	x, a
@@ -842,11 +843,7 @@ InitSequenceData:
 	mov	drumToneTablePtr+1, a
 	mov	exToneTablePtr, a
 	mov	exToneTablePtr+1, a
-	; ベースポインタ読み出し
-	mov	a, !TrackLocation
-	mov	seqBaseAddress, a
-	mov	a, !TrackLocation+1
-	mov	seqBaseAddress+1, a
+
 	; ドラムトーンテーブル位置の設定
 	mov	drumToneTablePtr, #(MUSICTRACKS*2)
 	movw	ya, seqBaseAddress
@@ -920,6 +917,7 @@ InitSequenceData:
 	bmi	-
 
 	; 全体データの初期化
+	mov	musicTempo, #MUSIC_TEMPO_DEFAULT		; 音楽テンポの初期値をセットします
 	mov	musicGlobalVolume, a
 	mov	musicTempo, #60
 	mov	eVolRatio, #0
@@ -928,10 +926,26 @@ InitSequenceData:
 	; ミュート解除
 	mov	SPC_REGADDR, #DSP_FLG
 	mov	SPC_REGDATA, #0
+
+	mov	a, #$ff			;\  カウンタ値をMAX値にします
+	mov	sndTempoCounter, a	; | こうすることで、テンポが0以外なら
+	mov	musicTempoCounter, a	;/  初回のtick動作で必ず解析処理が実行されます
+
 	ret
 
 TrackLocation:
+	; この値は仮の値。
+	; SPC作成時に書き換える。
+.ifdef _MAKESPC
 	.dw	$2000
+.else
+	.dw	NullMusicTable
+.endif
+
+NullMusicTable:
+	.rept MUSICTRACKS
+	.dw	0
+	.endr
 
 ;------------------------------
 ; local values undefine

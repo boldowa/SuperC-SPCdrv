@@ -91,17 +91,45 @@ _EndInitDSP:
 ;.ifdef _MAKESPC
 ;	call	InitDebugSeqData
 ;.endif
+	mov	a, !TrackLocation
+	mov	seqBaseAddress, a
+	mov	a, !TrackLocation+1
+	mov	seqBaseAddress+1, a
+
 	call	InitSequenceData
 
 ; タイマレジスタの初期設定を行います
-	mov	a, SPC_COUNTER0					; カウンタレジスタをクリアします
 +	mov	SPC_TIMER0,	#TIMER				; タイマー周期をセットします
-	mov	musicTempo,	#MUSIC_TEMPO_DEFAULT		; 音楽テンポの初期値をセットします
-	mov	SPC_CONTROL,	#(CNT_ST0|CNT_PC10|CNT_PC32)	; タイマー0スタート / SPCポートクリア
+	mov	a, #CNT_ST0		; タイマー0スタート
+	mov	spcControlRegMirror, a
+	or	a, #(CNT_PC10|CNT_PC32)	; SPCポートクリア
+	mov	SPC_CONTROL, a
 
-	mov	a, #$ff			;\  カウンタ値をMAX値にします
-	mov	sndTempoCounter, a	; | こうすることで、テンポが0以外なら
-	mov	musicTempoCounter, a	;/  初回のtick動作で必ず解析処理が実行されます
+; エコーメモリの初期化待ちをします
+	mov	SPC_REGADDR, #DSP_FLG
+	mov	a, SPC_REGDATA
+	or	a, #FLG_ECEN
+	mov	SPC_REGDATA, a
+	mov	a, #$81
+	mov	y, #16
+	call	Sleep
+	mov	a, SPC_REGDATA
+	and	a, #($ff~FLG_ECEN)
+	mov	SPC_REGDATA, a
+; EDL最大値を保持します
+	mov	SPC_REGADDR, #DSP_EDL
+	mov	edlMax, SPC_REGDATA
+
+; SPCのwポートをクリアします
+	mov	a, #0
+	mov	x, #SPC_PORT0
+	mov	(x)+, a			;\
+	mov	(x)+, a			; | PortX-Wレジスタクリア
+	mov	(x)+, a			; |
+	mov	(x)+, a			;/
+
+; カウンタレジスタをクリアします
+	mov	a, SPC_COUNTER0
 
 ; --- メインのループ処理です
 _mainLoop:
@@ -175,8 +203,8 @@ _End:
 
 TAB_DSP_INIT:
 	.db   DSP_FLG,    (FLG_ECEN|FLG_MUTE|FLG_RES)
-	.db   DSP_MVOLL,  64
-	.db   DSP_MVOLR,  64
+	.db   DSP_MVOLL,  127
+	.db   DSP_MVOLR,  127
 	.db   DSP_EVOLL,   0
 	.db   DSP_EVOLR,   0
 	.db   DSP_KON,     0
@@ -184,7 +212,9 @@ TAB_DSP_INIT:
 	.db   DSP_EON,     0
 	.db   DSP_PMON,    0
 	.db   DSP_NON,     0
-	.db   DSP_DIR,   (DirTbl>>8)
+	.db   DSP_DIR
+DIRLoc:
+	.db   (DirTbl>>8)
 	.db   DSP_EDL      0
 	.db   DSP_ESA
 ESALoc:

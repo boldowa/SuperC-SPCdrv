@@ -55,16 +55,195 @@ _jmpTable:
 
 
 .section "trans" free
-.define syncCounter $00
-.define distAddr    $01
-.define brrIndex    $03
+;--- dp0
+.enum $00
+	dest		dw	/* データ書き込み先          */
+	dirInx		dw	/* 更新するDIRテーブルの位置 */
+.ende
+
+.macro SyncCpu
+	mov	a, SPC_PORT0		; 読み出し
+	mov	SPC_PORT0, a		; エコーバック
+-	cmp	a, SPC_PORT0		; SNES側で次情報が書き込まれるのを待つ
+	beq	-
+.endm
 
 transMusic:
-	waitSnes
+	;------------------------------
+	; Step1 : Receive EDL
+	;------------------------------
+	mov	a, !DIRLoc
+	mov	dirInx+1, a
+	mov	dirInx, #($20*4)
+	mov	a, SPC_PORT1
+	bpl	_ChangeEdl		; EDLが負数の場合、Waitなしの変則モード
+	movw	ya, brrReceiveHead
+	movw	dest, ya
+	bra	_NoWait
+
+_ChangeEdl
+	and	a, #$0f
+	mov	y, a
+	mov	edlMax, a
+	bne	+
+	mov	a,#4
+	bra	++
+	;--- EDLを8倍
++	xcn	a
+	lsr	a
+	;--- 波形転送先算出
+	clrc
+	adc	a, !ESALoc	; ESA + EDL -> 波形転送先
+	mov	dest+1, a
+	mov	brrReceiveHead+1, a
+	mov	a, #0
+++	mov	dest, a
+	mov	brrReceiveHead, a
+	;--- エコーカウンタのリセット待ち
+	mov	SPC_REGADDR, #DSP_FLG
+	mov	a, SPC_REGDATA
+	or	a, #(FLG_ECEN|FLG_MUTE)		; エコーを切り、ミュート状態にします
+	mov	SPC_REGDATA, a
+	mov	SPC_REGADDR, #DSP_EDL
+	mov	a, y
+	cmp	a, SPC_REGDATA
+	bpl	+
+	mov	y, SPC_REGDATA
++	cmp	y, #0
+	beq	+
+	mov	SPC_REGDATA, a
+	mov	a, #$81
+	call	Sleep
+
+	/*----------------------------------------------*/
+	/* 以下は、EDL/ESA 両方とも書き換える場合でも   */
+	/* 異音を出さないようにする安全コード           */
+	/* ただし、待機時間が最大で↑のコードの２倍近く */
+	/* になります。                                 */
+	/* つまりどういうことかというと、               */
+	/* 音楽の転送にかかる時間が増大します。         */
+	/*----------------------------------------------*/
+.if 1 == 0	; <- C言語等でいうところの、"#if 0" 
++	mov	y, edlMax
++	mov	SPC_REGDATA, a
+	beq	+
+	mov	a, #$81
+	call	Sleep
++	mov	a, SPC_PORT1
+	and	a, #$0f
+	mov	edlMax, a
+	mov	y, a
+	mov	SPC_REGADDR, #DSP_EDL
+	mov	SPC_REGDATA, a
+	beq	+
+	mov	a, #$81
+	call	Sleep
+.endif
+	/* FLG復元 */
++	mov	SPC_REGADDR, #DSP_FLG
+	mov	a, SPC_REGDATA
+	and	a, #($ff~FLG_ECEN)
+	mov	SPC_REGDATA, a
+_NoWait:
+	SyncCpu
+
+_BrrExists:
+	;------------------------------
+	; Step2-1 : Receive BRR Loop
+	;------------------------------
+	mov	a, SPC_PORT1		; 転送有無(BRR波形番号)を取得する
+	beq	_Sequence		; 転送なし(0x00) ならば、シーケンス転送処理に移行する
+
+	mov	y, #0
+	mov	a, dest
+	mov	[dirInx]+y, a
+	inc	y
+	mov	a, dest+1
+	mov	[dirInx]+y, a
+	inc	y
+	mov	a, SPC_PORT2
+	clrc
+	adc	a, dest
+	mov	[dirInx]+y, a
+	inc	y
+	mov	a, SPC_PORT3
+	adc	a, dest+1
+	mov	[dirInx]+y, a
+	inc	y
+	mov	a, y
+	mov	y, #0
+	clrc
+	addw	ya, dirInx
+	movw	dirInx, ya
+	;------------------------------
+	; Step2-2 : Receive BRR
+	;------------------------------
+	call	ParallelPortReceive
+	bra	_BrrExists
+
+_Sequence:
+	;------------------------------
+	; Step3 : Receive Sequence
+	;------------------------------
+	mov	seqBaseAddress, dest
+	mov	seqBaseAddress+1, dest+1
+	call	ParallelPortReceive
+
+	;------------------------------
+	; 音楽の初期化
+	;------------------------------
+	call	InitSequenceData
+	; ミュート状態を解除します
+	mov	SPC_REGADDR, #DSP_FLG
+	mov	a, SPC_REGDATA
+	and	a, #($ff~FLG_MUTE)
+	mov	SPC_REGDATA, a
+	; カウンタレジスタをクリアします
+	mov	a, SPC_COUNTER0
+
+	;------------------------------
+	; 後始末
+	;------------------------------
+	mov	a, #0
+	mov	x, #SPC_PORT0
+	mov	(x)+, a			;\
+	mov	(x)+, a			; | PortX-Wレジスタクリア
+	mov	(x)+, a			; |
+	mov	(x)+, a			;/
+	mov	a, spcControlRegMirror
+	or	a, #(CNT_PC32|CNT_PC10)	; PortX-Rレジスタクリア
+	mov	SPC_CONTROL, a
+_Return:
 	ret
 
+;-------------------------------------------------
+; パラレルポート転送
+;   CPU-APU間の同期が、シリアルポート転送の1/3に
+;   なる為、転送速度はシリアルポートと比べると
+;   ３倍弱程度になることが期待できます。
+;-------------------------------------------------
+ParallelPortReceive:
+	SyncCpu
+	mov	a, SPC_PORT0
+	beq	_Return
+	mov	y, #0
+	mov	a, SPC_PORT1
+	mov	[dest]+y, a
+	inc	y
+	mov	a, SPC_PORT2
+	mov	[dest]+y, a
+	inc	y
+	mov	a, SPC_PORT3
+	mov	[dest]+y, a
+	inc	y
+	mov	a, y
+	clrc
+	adc	a, dest
+	mov	dest, a
+	adc	dest+1, #0
+	bra	ParallelPortReceive
 
-.undef syncCounter, distAddr, brrIndex
+.undef dest, dirInx
 .ends
 
 

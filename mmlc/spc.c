@@ -241,6 +241,8 @@ bool makeSPC(byte* spc, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData
 		esa += 0x100;
 	}
 	spc[0x100 + core->esaLoc] = (esa >> 8);
+	/* 初期EDL */
+	spc[0x100 + core->esaLoc-2] = mml->maxEDL;
 
 	/* データ書き込み先を決定します */
 	aramWritePtr = esa + (mml->maxEDL * 0x800);
@@ -305,7 +307,7 @@ bool makeSPC(byte* spc, stSpcCore* core, MmlMan *mml, BinMan* seq, stBrrListData
 		puterror("makeSPC: Insert data size is too big.");
 		return false;
 	}
-	putdebug("seqStart: 0x%x", aramWritePtr);
+	putinfo("seqStart: 0x%x", aramWritePtr);
 	*(word*)&spc[0x100 + core->seqBasePoint] = aramWritePtr;
 	memcpy(&spc[0x100 + aramWritePtr], seq->data, seq->dataInx);
 

@@ -3,6 +3,8 @@
  */
 
 .ifndef _HEADER_INC
+.define _HEADER_INC
+
 .ifndef _LIB
 
 .ifdef _MAKESMC

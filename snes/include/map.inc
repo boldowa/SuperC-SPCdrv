@@ -3,9 +3,12 @@
  */
 
 .ifndef _MAP_INC
+.define _MAP_INC
+
+.include "ram.inc"
 
 .ifndef _LIB
-.define EMPTY $00
+.define EMPTY $ff
 .emptyfill EMPTY
 
 .memorymap

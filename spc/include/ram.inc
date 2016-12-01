@@ -77,9 +77,12 @@
 	sfxBaseAddress			dw	; 効果音データのベースアドレス(データ開始位置)
 	drumToneTablePtr		dw	; ドラムセット位置、通常はシーケンスアドレス+(トラック数*2)
 	exToneTablePtr			dw	; 曲に付随するトーンテーブル、通常はシーケンスアドレス+(トラック数*2)+(ドラム音色構造体サイズ*7)
+	brrReceiveHead			dw	; BRRデータ受信先の先頭位置
 	tmpTrackSysBits			db	;\  それぞれtmpを除いた同名の名前のトラックメモリの一時作業メモリ
 	tmpVolFuncBits			db	; | メモリ詳細は、"ramstr.inc"を参照。
 	tmpPitchFuncBits		db	;/
+	edlMax				db	; EDL値の最大値
+	spcControlRegMirror		db	; SPC_CONTROLレジスタのミラー
 
 ;----------------------------------------
 ; DSPメモリ更新バッファ

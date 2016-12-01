@@ -25,7 +25,7 @@ ifdef MAKESPC
 endif
 
 
-.PHONY: all clean
+.PHONY: all clean release
 
 
 
@@ -73,6 +73,8 @@ tags: $(OBJS) $(LIBS) Makefile
 	echo "done!!";\
 	fi
 
+release:
+	make && mkdir -p release && cp SuperC.bin release/spccore.bin
 clean:
-	rm -rf $(TARGET:.spc=.bin) $(TARGET:.bin=.spc) $(TARGET:.bin=.sym) $(OBJS) $(LIBS) $(OBJS:.o=.d) $(LIBS:.lib=.d) linkfile
+	rm -rf $(TARGET:.spc=.bin) $(TARGET:.bin=.spc) $(TARGET:.bin=.sym) $(OBJS) $(LIBS) $(OBJS:.o=.d) $(LIBS:.lib=.d) linkfile release
 

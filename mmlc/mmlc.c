@@ -15,6 +15,7 @@
 #include "pathfunc.h"
 
 #define BRR_BUF 2048
+#define DATA_BUFFER_SIZE 0x40000
 
 /************************************************************/
 /* オプション関連定義                                       */
@@ -22,6 +23,7 @@
 enum{
 	OPT_Nolink = 1,
 	OPT_SNSF,
+	OPT_ROM,
 	OPT_Debug,
 	OPT_Help,
 	OPT_Version,
@@ -30,10 +32,12 @@ typedef enum{
 	MAKE_SPC = 0,
 	MAKE_BIN,
 	MAKE_SNSF,
+	MAKE_ROM,
 }MakeType;
 static const Option Opt[] = {
 	{OPT_Nolink, "compileonly", 'c', "compile only, not make spc"},
 	{OPT_SNSF, "snsf", 's', "generate snsf file."},
+	{OPT_ROM, "rom", 'r', "generate rom image."},
 	{OPT_Debug, "debug", 'd', "verbose debug info"},
 	{OPT_Help, "help", '?', "show usage"},
 	{OPT_Version, "version", 'v', "show version"},
@@ -129,6 +133,9 @@ bool parseOption(const int argc, const char **argv)
 				break;
 			case OPT_SNSF:
 				type = MAKE_SNSF;
+				break;
+			case OPT_ROM:
+				type = MAKE_ROM;
 				break;
 			default:
 				break;
@@ -230,7 +237,7 @@ int main(const int argc, const char** argv)
 	BinMan binary;
 	TIME startTime, endTime;
 	stBrrListData *brrList = NULL;
-	byte spcBuffer[0x10200];
+	byte genDataBuffer[DATA_BUFFER_SIZE];
 	stSpcCore spcCore;
 	char spcCorePath[MAX_PATH];
 
@@ -239,7 +246,7 @@ int main(const int argc, const char** argv)
 	/* 初期化 */
 	memset(&mml, 0, sizeof(MmlMan));
 	memset(&binary, 0, sizeof(BinMan));
-	memset(spcBuffer, 0xff, 0x10200);
+	memset(genDataBuffer, 0xff, DATA_BUFFER_SIZE);
 
 	/* オプション展開 */
 	if(!parseOption(argc, argv))
@@ -325,7 +332,7 @@ int main(const int argc, const char** argv)
 		case MAKE_SPC:
 		{
 			/* SPCデータを生成します */
-			if(false == makeSPC(spcBuffer, &spcCore, &mml, &binary, brrList))
+			if(false == makeSPC(genDataBuffer, &spcCore, &mml, &binary, brrList))
 			{
 				puterror("makeSPC failed.");
 				deleteBrrListData(brrList);
@@ -339,14 +346,14 @@ int main(const int argc, const char** argv)
 
 			/* SPCデータを書き出します */
 			/* fwrite(binary.data, sizeof(byte), binary.dataInx, outf); */
-			fwrite(spcBuffer, sizeof(byte), 0x10200, outf);
+			fwrite(genDataBuffer, sizeof(byte), 0x10200, outf);
 		}
 		break;
 
 		case MAKE_BIN:
 		{
 			int sz;
-			sz = makeBin(spcBuffer, &spcCore, &mml, &binary, brrList);
+			sz = makeBin(genDataBuffer, &spcCore, &mml, &binary, brrList);
 			if(0 == sz)
 			{
 				puterror("makeBin failed.");
@@ -359,14 +366,14 @@ int main(const int argc, const char** argv)
 				return -1;
 			}
 
-			fwrite(spcBuffer, sizeof(byte), sz, outf);
+			fwrite(genDataBuffer, sizeof(byte), sz, outf);
 		}
 		break;
 
 		case MAKE_SNSF:
 		{
 			int sz;
-			sz = makeSNSF(spcBuffer, &spcCore, &mml, &binary, brrList);
+			sz = makeSNSF(genDataBuffer, &spcCore, &mml, &binary, brrList);
 			if(0 == sz)
 			{
 				puterror("makeSNSF failed.");
@@ -379,8 +386,29 @@ int main(const int argc, const char** argv)
 				return -1;
 			}
 
-			fwrite(spcBuffer, sizeof(byte), sz, outf);
+			fwrite(genDataBuffer, sizeof(byte), sz, outf);
 		}
+		break;
+
+		case MAKE_ROM:
+		{
+			int result;
+			result = buildSnes(genDataBuffer, &spcCore, &mml, &binary, brrList);
+			if(0 == result)
+			{
+				puterror("makeROM failed.");
+				deleteBrrListData(brrList);
+				mmlclose(&mml);
+				binfree(&binary);
+				fclose(outf);
+				freecore(&spcCore);
+				remove(out_file_name);
+				return -1;
+			}
+
+			fwrite(genDataBuffer, sizeof(byte), ROMSIZE, outf);
+		}
+		break;
 	}
 	fclose(outf);
 
