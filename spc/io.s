@@ -48,7 +48,7 @@ _jmpTable:
 	.dw   setMasterVolume                 ; 03h ... マスター音量調整
 	.dw   setMusicVolume                  ; 04h ... 音楽音量調整
 	.dw   setSoundVolume                  ; 05h ... 効果音音量調整
-	.dw   NULL                            ; 06h ... ステレオ・モノラル切替
+	.dw   switchStereoMono                ; 06h ... ステレオ・モノラル切替
 	.dw   NULL                            ; 07h ...
 	.dw   NULL                            ; 08h ... 
 .ends
@@ -204,6 +204,7 @@ _Sequence:
 	;------------------------------
 	; 後始末
 	;------------------------------
+PortClear:
 	mov	a, #0
 	mov	x, #SPC_PORT0
 	mov	(x)+, a			;\
@@ -248,11 +249,37 @@ ParallelPortReceive:
 
 
 
-.section "stub" free
-SE:
+.section "MINI-IO-FUNC" free
+;---------------------------------------
+; マスター音量設定
+;---------------------------------------
 setMasterVolume:
+	mov	a, SPC_PORT1
+	mov	x, #SPC_REGDATA
+	mov	SPC_REGADDR, #DSP_MVOLL
+	mov	(x), a
+	mov	SPC_REGADDR, #DSP_MVOLR
+	mov	(x), a
+_EndIOFunc:
+	SyncCpu
+	call	PortClear
+	mov	a, #0
+	ret
+;---------------------------------------
+; ステレオ・モノラル切替
+;---------------------------------------
+switchStereoMono:
+	clrc
+	mov	a, SPC_PORT1
+	bne	+
+	setc
++	mov1	musicSysFlags.2, c
+	bra	_EndIOFunc
+
+
 setMusicVolume:
 setSoundVolume:
+SE:
 	mov	a, #0
 	ret
 .ends
