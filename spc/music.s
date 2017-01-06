@@ -190,21 +190,45 @@ _NormalNote:
 	mov	a, track.pitchEnvDiff+x
 	bne	+
 	mov	a, y
-	bra	_KeyStore
+	mov	track.curKey+x, a
+	bra	_StepStore
 
 	; --- Pitch Envelope
-+	eor	a, #$ff
-	inc	a
-	mov	track.pitchBendDiff+x, a
-	mov	a, track.pitchEnvDelay+x
-	mov	track.pitchBendDelay+x, a
-	mov	a, track.pitchEnvSpan+x
-	mov	track.pitchBendSpan+x, a
++	push	a
 	mov	a, y
 	clrc
 	adc	a, track.pitchEnvDiff+x
-_KeyStore:
 	mov	track.curKey+x, a
+	pop	a
+	eor	a, #$ff
+	inc	a
+
+	;----- ピッチEnv計算
+	mov	y, a
+	bpl	+
+	eor	a, #$ff
+	inc	a
+	mov	y, a
+
+	; --- PitchEnvをかけるticksを除数にセット
++	mov	a, track.pitchEnvSpan+x
+
+	call	DivDuration
+
+	mov	track.pitchEnvDelta+x, a
+	mov	a, $00
+	mov	track.pitchEnvKey+x, a
+
+	;----- PitchEnv計算ここまで
+
+	mov	a, track.pitchEnvDelay+x
+	mov	track.pitchEnvWaits+x, a
+	mov	a, track.pitchEnvSpan+x
+	mov	track.pitchEnvEfct+x, a
+	mov	a, #0
+	mov	track.pitchEnvPhase+x, a
+
+_StepStore:
 	mov	a, track.step+x
 	dec	a
 	mov	track.stepLeft+x, a
@@ -432,7 +456,59 @@ SetRelativePointer:
 /* フェーズ処理(LFO等向けの処理)                  */
 /**************************************************/
 PhaseIncrease:
-	; Pitchbend
+_PitchEnvelope:
+	mov	a, track.pitchEnvEfct+x
+	beq	_PitchBend
+	mov	a, track.pitchEnvWaits+x
+	beq	_PitchEnvPhase
+	dec	a
+	mov	track.pitchEnvWaits+x, a
+	bra	_PitchBend
+_PitchEnvPhase:
+	mov	a, track.pitchEnvEfct+x
+	dec	a
+	mov	track.pitchEnvEfct+x, a
+	mov	a, track.pitchEnvDiff+x
+	bmi	_EnvMinus
+	; ピッチエンベロープ +方向
+	mov	a, track.pitchEnvPhase+x
+	setc
+	sbc	a, track.pitchEnvDelta+x
+	mov	track.pitchEnvPhase+x, a
+	mov	a, track.curKey+x
+	sbc	a, track.pitchEnvKey+x
+	mov	track.curKey+x, a
+
+	;--- 端数切捨て
+	;mov	a, track.pitchEnvEfct+x
+	;bne	_PitchBend
+	;mov	a, track.pitchEnvPhase+x
+	;beq	_PitchBend
+	;mov	a, track.curKey+x
+	;dec	a
+	;mov	track.curKey+x, a
+
+	bra	_PitchBend
+_EnvMinus:
+	mov	a, track.pitchEnvPhase+x
+	clrc
+	adc	a, track.pitchEnvDelta+x
+	mov	track.pitchEnvPhase+x, a
+	mov	a, track.curKey+x
+	adc	a, track.pitchEnvKey+x
+	mov	track.curKey+x, a
+
+	;--- 端数切上げ
+	mov	a, track.pitchEnvEfct+x
+	bne	_PitchBend
+	mov	a, track.pitchEnvPhase+x
+	beq	_PitchBend
+	mov	a, track.curKey+x
+	inc	a
+	mov	track.curKey+x, a
+
+
+_PitchBend:
 	mov	a, track.pitchBendSpan+x
 	beq	_Modulation
 	mov	a, track.pitchBendDelay+x
@@ -454,6 +530,16 @@ _PitchbendPhase:
 	mov	a, track.curKey+x
 	adc	a, track.pitchBendKey+x
 	mov	track.curKey+x, a
+
+	;--- 端数切上げ
+	mov	a, track.pitchBendSpan+x
+	bne	_Modulation
+	mov	a, track.pitchBendPhase+x
+	beq	_Modulation
+	mov	a, track.curKey+x
+	inc	a
+	mov	track.curKey+x, a
+
 	bra	_Modulation
 _BendMinus:
 	mov	a, track.pitchBendPhase+x
@@ -463,6 +549,15 @@ _BendMinus:
 	mov	a, track.curKey+x
 	sbc	a, track.pitchBendKey+x
 	mov	track.curKey+x, a
+
+	;--- 端数切捨て
+	;mov	a, track.pitchBendSpan+x
+	;bne	_Modulation
+	;mov	a, track.pitchBendPhase+x
+	;beq	_Modulation
+	;mov	a, track.curKey+x
+	;dec	a
+	;mov	track.curKey+x, a
 
 _Modulation:
 	mov	a, track.modulationDepth+x

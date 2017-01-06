@@ -84,7 +84,7 @@
 	pitchBendDelay	dsb	TRACKS
 	pitchBendSpan	dsb	TRACKS
 	pitchBendDiff	dsb	TRACKS
-	pitchBendWaits	dsb	TRACKS
+	;pitchBendWaits	dsb	TRACKS
 	pitchBendDelta	dsb	TRACKS
 	pitchBendPhase	dsb	TRACKS
 	pitchBendKey	dsb	TRACKS
@@ -100,6 +100,11 @@
 	pitchEnvDelay	dsb	TRACKS
 	pitchEnvSpan	dsb	TRACKS
 	pitchEnvDiff	dsb	TRACKS
+	pitchEnvWaits	dsb	TRACKS
+	pitchEnvEfct	dsb	TRACKS
+	pitchEnvDelta	dsb	TRACKS
+	pitchEnvPhase	dsb	TRACKS
+	pitchEnvKey	dsb	TRACKS
 .endst
 
 ;----------------------------------------

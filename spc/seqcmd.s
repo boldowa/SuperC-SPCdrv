@@ -44,7 +44,8 @@ CmdTable:
 	.dw	CmdEchoOff
 	.dw	CmdPortamentoOn
 	.dw	CmdPortamentoOff
-	.dw	CmdCmdCallArg0
+	.dw	CmdCmdCall
+	.dw	CmdCmdCall
 
 CmdLengthTable:
 	.db	2	; CmdJump
@@ -73,12 +74,48 @@ CmdLengthTable:
 	.db	0	; CmdEchoOff
 	.db	0	; CmdPortamentoOn
 	.db	0	; CmdPortamentoOff
-	.db	1	; CmdCmdCallArg0
+	.db	0	; CmdCmdCall(Arg:0)
+	.db	1	; CmdCmdCall(Arg:1)
+
+;--------------------------------------------------
+; Sub Command
+;--------------------------------------------------
+
+CmdCmdCall:
+	call	readSeq
+	asl	a
+	mov	y, a
+	mov	a, !_SubCmdTable+1+y
+	mov	!_jmpTgt+2, a
+	mov	a, !_SubCmdTable+y
+	mov	!_jmpTgt+1, a
+	mov	a, #0
+_jmpTgt:
+	jmp	$0000
+
+_SubCmdTable:
+
+	.dw	CmdPitchModulationOff		; arg: 0
+	.dw	CmdTremoloOff			; arg: 0
+	.dw	CmdPanVibrationOff		; arg: 0
+	.dw	CmdHWPitchModulationOn		; arg: 0
+	.dw	CmdHWPitchModulationOff		; arg: 0
+	.dw	CmdPitchEnvelopeOff		; arg: 0
+	.dw	CmdNotKeyOffOn			; arg: 0
+	.dw	CmdNotKeyOffOff			; arg: 0
+
+	.dw	CmdSetAR			; arg: 1
+	.dw	CmdSetDR			; arg: 1
+	.dw	CmdSetSL			; arg: 1
+	.dw	CmdSetSR			; arg: 1
+	.dw	CmdSetRR			; arg: 1
+	.dw	CmdSetGain			; arg: 1
+	.dw	CmdSpwavFreq			; arg: 1
+
 
 ;--------------------------------------------------
 ; Command Include
 ;--------------------------------------------------
-.include	"CmdCmdCall.s"
 .include	"CmdSetInstrument.s"
 .include	"CmdVolume.s"
 .include	"CmdPanpot.s"
@@ -100,6 +137,10 @@ CmdLengthTable:
 .include	"CmdHWPitchModulation.s"
 .include	"CmdPitchEnvelope.s"
 .include	"CmdNotKeyOff.s"
+.include	"CmdAdsr.s"
+.include	"CmdSpwavFreq.s"
 
 .ends
+
+.export CMD_PITCH_ENVELOPE
 

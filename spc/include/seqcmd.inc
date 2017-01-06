@@ -67,6 +67,7 @@
 	CMD_PORTAM_ON		db
 	CMD_PORTAM_OFF		db
 	CMD_CMD_ARG0		db
+	CMD_CMD_ARG1		db
 
 	SEQCMD_END		db
 .ende
@@ -75,6 +76,9 @@
 ; Sub-Commands
 ;------------------------------------------------
 .enum 0
+	;---------------------------------------
+	; arg: 0
+	;---------------------------------------
 	SCMD_MODURATION_OFF		db
 	SCMD_TREMOLO_OFF		db
 	SCMD_PAN_VIBRATION_OFF		db
@@ -83,6 +87,16 @@
 	SCMD_PITCH_ENVELOPE_OFF		db
 	SCMD_NOT_KEYOFF_ON		db
 	SCMD_NOT_KEYOFF_OFF		db
+	;---------------------------------------
+	; arg: 1
+	;---------------------------------------
+	SCMD_SET_AR			db
+	SCMD_SET_DR			db
+	SCMD_SET_SL			db
+	SCMD_SET_SR			db
+	SCMD_SET_RR			db
+	SCMD_SET_GAIN			db
+	SCMD_SPWAV_FREQ			db
 .ende
 
 .printt "SEQCMD_START: 0x"

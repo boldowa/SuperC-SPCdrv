@@ -136,6 +136,8 @@ _CalcPitch
 	mov	a, track.curKey+x
 	clrc
 	adc	a, track.transpose+x
+	;setc
+	;sbc	a, track.pitchEnvKey+x
 	push	a
 	call	CalcScale
 	movw	lPitch, ya
@@ -145,8 +147,25 @@ _CalcPitch
 	pop	x
 
 	/****************************************/
+	/* ピッチエンベロープ処理               */
+	/****************************************/
+_PitchEnvelope:
+	mov	a, track.pitchEnvEfct+x
+	beq	_PitchBend
+	mov	a, track.pitchEnvWaits+x
+	bne	_PitchBend
+	mov	$04, lPitchDif+1
+	mov	a, lPitchDif
+	mov	y, a
+	mov	a, track.pitchEnvPhase+x
+	call	mul16_8
+	addw	ya, lPitch
+	movw	lPitch, ya
+
+	/****************************************/
 	/* ピッチベンド処理                     */
 	/****************************************/
+_PitchBend:
 	mov	a, track.pitchBendSpan+x
 	beq	_Detune
 	mov	a, track.pitchBendDelay+x

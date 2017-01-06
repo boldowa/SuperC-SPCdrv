@@ -74,9 +74,11 @@ enum commandlist{
 	CMD_PORTAM_ON,
 	CMD_PORTAM_OFF,
 	CMD_CMD_ARG0,
+	CMD_CMD_ARG1,
 };
 
 enum subcommandlist{
+	/* ---------- arg: 0 ----------*/
 	SCMD_MODURATION_OFF = 0,
 	SCMD_TREMOLO_OFF,
 	SCMD_PAN_VIBRATION_OFF,
@@ -86,6 +88,15 @@ enum subcommandlist{
 	SCMD_NOT_KEYOFF_ON,
 	SCMD_NOT_KEYOFF_OFF,
 
+	/* ---------- arg: 1 ----------*/
+	SCMD_SET_AR,
+	SCMD_SET_DR,
+	SCMD_SET_SL,
+	SCMD_SET_SR,
+	SCMD_SET_RR,
+	SCMD_SET_GAIN,
+	SCMD_SPWAV_FREQ,
+
 	SCMD_NOT_FOUND
 };
 
@@ -94,14 +105,22 @@ static struct {
 	int	command;
 	int	length;
 } subCommandArgcTable[] = {
-	{ SCMD_MODURATION_OFF,		0  },
-	{ SCMD_TREMOLO_OFF,		0  },
-	{ SCMD_PAN_VIBRATION_OFF,	0  },
-	{ SCMD_HWPM_ON,			0  },
-	{ SCMD_HWPM_OFF,		0  },
-	{ SCMD_PITCH_ENVELOPE_OFF,	0  },
-	{ SCMD_NOT_KEYOFF_ON,		0  },
-	{ SCMD_NOT_KEYOFF_OFF,		0  },
+	{ SCMD_MODURATION_OFF,		0 },
+	{ SCMD_TREMOLO_OFF,		0 },
+	{ SCMD_PAN_VIBRATION_OFF,	0 },
+	{ SCMD_HWPM_ON,			0 },
+	{ SCMD_HWPM_OFF,		0 },
+	{ SCMD_PITCH_ENVELOPE_OFF,	0 },
+	{ SCMD_NOT_KEYOFF_ON,		0 },
+	{ SCMD_NOT_KEYOFF_OFF,		0 },
+	/*---------------------------------*/
+	{ SCMD_SET_AR,			1 },
+	{ SCMD_SET_DR,			1 },
+	{ SCMD_SET_SL,			1 },
+	{ SCMD_SET_SR,			1 },
+	{ SCMD_SET_RR,			1 },
+	{ SCMD_SET_GAIN,		1 },
+	{ SCMD_SPWAV_FREQ,		1 },
 	/*---------------------------------*/
 	{ SCMD_NOT_FOUND,		-1 }
 };
@@ -994,8 +1013,10 @@ bool putSubCommand(TracksData *tracks, const byte scmd, int loopDepth, MmlMan *m
 		case 0:
 			putSeq(tracks, CMD_CMD_ARG0, loopDepth, mml, compileErr);
 			break;
-		/*--- 以下、該当コマンド無しの為未実装 ---------------------------*/
 		case 1:
+			putSeq(tracks, CMD_CMD_ARG1, loopDepth, mml, compileErr);
+			break;
+		/*--- 以下、該当コマンド無しの為未実装 ---------------------------*/
 		case 2:
 		default:
 			newError(mml, compileErr, compileErrList);
@@ -1505,74 +1526,44 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 				break;
 
 			/******************************************/
-			/* エコーパラメータ設定                   */
+			/* ピッチエンベロープ                     */
 			/******************************************/
 			case 'E':
-			{
-				int edl;
-
-				/* ログ出力 */
-				newError(mml, compileErr, compileErrList);
-				compileErr->type = ErrorNone;
-				compileErr->level = ERR_DEBUG;
-				sprintf(compileErr->message, "Echo parameter");
-				addError(compileErr, compileErrList);
-
-				if(3 != getNumbers(mml, false, tempVal, compileErrList))
 				{
+					int nums;
+
+					/* ログ出力 */
 					newError(mml, compileErr, compileErrList);
-					compileErr->type = SyntaxError;
-					compileErr->level = ERR_ERROR;
-					sprintf(compileErr->message, "Invalid echo parameter.");
+					compileErr->type = ErrorNone;
+					compileErr->level = ERR_DEBUG;
+					sprintf(compileErr->message, "Pitch-envelope");
 					addError(compileErr, compileErrList);
-					continue;
+
+					nums = getNumbers(mml, false, tempVal, compileErrList);
+					if(nums == 1 && 0 ==tempVal[0])
+					{
+						putSubCommand(&tracks, SCMD_PITCH_ENVELOPE_OFF, loopDepth, mml, compileErr);
+						break;
+					}
+
+					if(3 != nums)
+					{
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = SyntaxError;
+						compileErr->level = ERR_ERROR;
+						sprintf(compileErr->message, "Invalid pitch-envelope.");
+						addError(compileErr, compileErrList);
+						continue;
+					}
+
+					/* ピッチエンベロープコマンド挿入 */
+					putSeq(&tracks, CMD_PITCH_ENVELOPE, loopDepth, mml, compileErr);
+					putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
+					putSeq(&tracks, tempVal[1], loopDepth, mml, compileErr);
+					putSeq(&tracks, tempVal[2], loopDepth, mml, compileErr);
+					isAbnormalState = false;
+					break;
 				}
-
-				/* EDL最大値の更新 */
-				edl = tempVal[1] & 0xf;
-				if(mml->maxEDL < edl)
-				{
-					mml->maxEDL = edl;
-				}
-
-				/* エコーパラメータコマンド挿入 */
-				putSeq(&tracks, CMD_ECHO_PARAM, loopDepth, mml, compileErr);
-				putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
-				putSeq(&tracks, tempVal[1], loopDepth, mml, compileErr);
-				putSeq(&tracks, tempVal[2], loopDepth, mml, compileErr);
-				isAbnormalState = false;
-				break;
-			}
-
-			/******************************************/
-			/* エコーFIR係数設定                      */
-			/******************************************/
-			case 'F':
-				/* ログ出力 */
-				newError(mml, compileErr, compileErrList);
-				compileErr->type = ErrorNone;
-				compileErr->level = ERR_DEBUG;
-				sprintf(compileErr->message, "FIR parameter");
-				addError(compileErr, compileErrList);
-
-				if(8 != getNumbers(mml, false, tempVal, compileErrList))
-				{
-					newError(mml, compileErr, compileErrList);
-					compileErr->type = SyntaxError;
-					compileErr->level = ERR_ERROR;
-					sprintf(compileErr->message, "Invalid FIR parameter.");
-					addError(compileErr, compileErrList);
-					continue;
-				}
-
-				/* FIR係数コマンド挿入 */
-				putSeq(&tracks, CMD_ECHO_FIR, loopDepth, mml, compileErr);
-				{
-					int i;
-					for(i=0; i<8; i++){ putSeq(&tracks, tempVal[i], loopDepth, mml, compileErr); }
-				}
-				isAbnormalState = false;
-				break;
 
 			/******************************************/
 			/* コントロール                           */
@@ -2458,6 +2449,290 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							isAbnormalState = false;
 							break;
 						}
+
+					/******************************************/
+					/* エコーパラメータ設定                   */
+					/******************************************/
+					case 'E':
+						{
+							int edl;
+
+							mmlgetforward(mml);
+							/* ログ出力 */
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = ErrorNone;
+							compileErr->level = ERR_DEBUG;
+							sprintf(compileErr->message, "Echo parameter");
+							addError(compileErr, compileErrList);
+
+							if(3 != getNumbers(mml, false, tempVal, compileErrList))
+							{
+								newError(mml, compileErr, compileErrList);
+								compileErr->type = SyntaxError;
+								compileErr->level = ERR_ERROR;
+								sprintf(compileErr->message, "Invalid echo parameter.");
+								addError(compileErr, compileErrList);
+								continue;
+							}
+
+							/* EDL最大値の更新 */
+							edl = tempVal[1] & 0xf;
+							if(mml->maxEDL < edl)
+							{
+								mml->maxEDL = edl;
+							}
+
+							/* エコーパラメータコマンド挿入 */
+							putSeq(&tracks, CMD_ECHO_PARAM, loopDepth, mml, compileErr);
+							putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
+							putSeq(&tracks, tempVal[1], loopDepth, mml, compileErr);
+							putSeq(&tracks, tempVal[2], loopDepth, mml, compileErr);
+							isAbnormalState = false;
+							break;
+						}
+
+					/******************************************/
+					/* エコーFIR係数設定                      */
+					/******************************************/
+					case 'F':
+						{
+							mmlgetforward(mml);
+							/* ログ出力 */
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = ErrorNone;
+							compileErr->level = ERR_DEBUG;
+							sprintf(compileErr->message, "FIR parameter");
+							addError(compileErr, compileErrList);
+
+							if(8 != getNumbers(mml, false, tempVal, compileErrList))
+							{
+								newError(mml, compileErr, compileErrList);
+								compileErr->type = SyntaxError;
+								compileErr->level = ERR_ERROR;
+								sprintf(compileErr->message, "Invalid FIR parameter.");
+								addError(compileErr, compileErrList);
+								continue;
+							}
+
+							/* FIR係数コマンド挿入 */
+							putSeq(&tracks, CMD_ECHO_FIR, loopDepth, mml, compileErr);
+							{
+								int i;
+								for(i=0; i<8; i++){ putSeq(&tracks, tempVal[i], loopDepth, mml, compileErr); }
+							}
+							isAbnormalState = false;
+							break;
+						}
+
+					/******************************************/
+					/* Attack Rate                            */
+					/******************************************/
+					case 'A':
+						mmlgetforward(mml);
+						/* ログ出力 */
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = ErrorNone;
+						compileErr->level = ERR_DEBUG;
+						sprintf(compileErr->message, "Change AR");
+						addError(compileErr, compileErrList);
+
+						if(1 != getNumbers(mml, false, tempVal, compileErrList))
+						{
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_ERROR;
+							sprintf(compileErr->message, "Invalid AR parameter.");
+							addError(compileErr, compileErrList);
+							continue;
+						}
+
+						putSubCommand(&tracks, SCMD_SET_AR, loopDepth, mml, compileErr);
+						putSeq(&tracks, (tempVal[0]&0xf), loopDepth, mml, compileErr);
+						break;
+
+					/******************************************/
+					/* Decay Rate                             */
+					/******************************************/
+					case 'D':
+						mmlgetforward(mml);
+						/* ログ出力 */
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = ErrorNone;
+						compileErr->level = ERR_DEBUG;
+						sprintf(compileErr->message, "Change DR");
+						addError(compileErr, compileErrList);
+
+						if(1 != getNumbers(mml, false, tempVal, compileErrList))
+						{
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_ERROR;
+							sprintf(compileErr->message, "Invalid DR parameter.");
+							addError(compileErr, compileErrList);
+							continue;
+						}
+
+						putSubCommand(&tracks, SCMD_SET_DR, loopDepth, mml, compileErr);
+						putSeq(&tracks, (tempVal[0]&0x7), loopDepth, mml, compileErr);
+						break;
+
+					/******************************************/
+					/* Sustain Level                          */
+					/******************************************/
+					case 'L':
+						mmlgetforward(mml);
+						/* ログ出力 */
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = ErrorNone;
+						compileErr->level = ERR_DEBUG;
+						sprintf(compileErr->message, "Change SL");
+						addError(compileErr, compileErrList);
+
+						if(1 != getNumbers(mml, false, tempVal, compileErrList))
+						{
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_ERROR;
+							sprintf(compileErr->message, "Invalid SL parameter.");
+							addError(compileErr, compileErrList);
+							continue;
+						}
+
+						putSubCommand(&tracks, SCMD_SET_SL, loopDepth, mml, compileErr);
+						putSeq(&tracks, (tempVal[0]&0x7), loopDepth, mml, compileErr);
+						break;
+
+					/******************************************/
+					/* Sustain Rate                           */
+					/******************************************/
+					case 'S':
+						mmlgetforward(mml);
+						/* ログ出力 */
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = ErrorNone;
+						compileErr->level = ERR_DEBUG;
+						sprintf(compileErr->message, "Change SR");
+						addError(compileErr, compileErrList);
+
+						if(1 != getNumbers(mml, false, tempVal, compileErrList))
+						{
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_ERROR;
+							sprintf(compileErr->message, "Invalid SR parameter.");
+							addError(compileErr, compileErrList);
+							continue;
+						}
+
+						putSubCommand(&tracks, SCMD_SET_SR, loopDepth, mml, compileErr);
+						putSeq(&tracks, (tempVal[0]&0x1f), loopDepth, mml, compileErr);
+						break;
+
+					/******************************************/
+					/* Release Rate                           */
+					/******************************************/
+					case 'R':
+						mmlgetforward(mml);
+						/* ログ出力 */
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = ErrorNone;
+						compileErr->level = ERR_DEBUG;
+						sprintf(compileErr->message, "Change RR");
+						addError(compileErr, compileErrList);
+
+						if(1 != getNumbers(mml, false, tempVal, compileErrList))
+						{
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_ERROR;
+							sprintf(compileErr->message, "Invalid RR parameter.");
+							addError(compileErr, compileErrList);
+							continue;
+						}
+
+						putSubCommand(&tracks, SCMD_SET_RR, loopDepth, mml, compileErr);
+						putSeq(&tracks, (tempVal[0]&0x1f), loopDepth, mml, compileErr);
+						break;
+
+					/******************************************/
+					/* Gain                                   */
+					/******************************************/
+					case 'G':
+						{
+							byte gmode;
+							byte gval;
+							byte gain;
+
+							mmlgetforward(mml);
+							/* ログ出力 */
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = ErrorNone;
+							compileErr->level = ERR_DEBUG;
+							sprintf(compileErr->message, "Change GAIN");
+							addError(compileErr, compileErrList);
+
+							if(2 != getNumbers(mml, false, tempVal, compileErrList))
+							{
+								newError(mml, compileErr, compileErrList);
+								compileErr->type = SyntaxError;
+								compileErr->level = ERR_ERROR;
+								sprintf(compileErr->message, "Invalid GAIN parameter.");
+								addError(compileErr, compileErrList);
+								continue;
+							}
+
+							gmode = tempVal[0];
+							gval = tempVal[1];
+
+							switch(gmode)
+							{
+								case 0:	/* 直接指定 */
+									gval &= 0x7f;
+									gain = gval;
+									break;
+								case 1:	/* 減少（リニア） */
+								case 2:	/* 減少（ 指数 ） */
+								case 3:	/* 増加（リニア） */
+								case 4:	/* 増加（折れ線） */
+								default:
+									gval &= 0x1f;
+									gmode--;
+									gain = (gmode << 5);
+									gain |= 0x80;
+									gain |= gval;
+									break;
+							}
+
+							putSubCommand(&tracks, SCMD_SET_GAIN, loopDepth, mml, compileErr);
+							putSeq(&tracks, gain, loopDepth, mml, compileErr);
+						}
+						break;
+
+					/******************************************/
+					/* Special Wave Freq                      */
+					/******************************************/
+					case 'W':
+						mmlgetforward(mml);
+						/* ログ出力 */
+						newError(mml, compileErr, compileErrList);
+						compileErr->type = ErrorNone;
+						compileErr->level = ERR_DEBUG;
+						sprintf(compileErr->message, "Change SPWAV Freq");
+						addError(compileErr, compileErrList);
+
+						if(1 != getNumbers(mml, false, tempVal, compileErrList))
+						{
+							newError(mml, compileErr, compileErrList);
+							compileErr->type = SyntaxError;
+							compileErr->level = ERR_ERROR;
+							sprintf(compileErr->message, "Invalid AR parameter.");
+							addError(compileErr, compileErrList);
+							continue;
+						}
+
+						putSubCommand(&tracks, SCMD_SPWAV_FREQ, loopDepth, mml, compileErr);
+						putSeq(&tracks, tempVal[0], loopDepth, mml, compileErr);
+						break;
 
 					default:
 						newError(mml, compileErr, compileErrList);

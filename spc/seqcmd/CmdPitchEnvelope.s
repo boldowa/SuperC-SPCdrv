@@ -16,14 +16,10 @@ CmdPitchEnvelope:
 	mov	track.pitchEnvDelay+x, a
 	call	readSeq
 	mov	track.pitchEnvSpan+x, a
-	mov	track.pitchBendSpan+x, a
 	call	readSeq
 CmdPitchEnvelopeOff:
 	mov	track.pitchEnvDiff+x, a
-	eor	a, #$ff
-	inc	a
-	mov	track.pitchBendDiff+x, a
-	jmp	PitchEnvShare
+	ret
 
 
 ;------------------------------

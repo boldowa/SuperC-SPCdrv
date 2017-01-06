@@ -11,6 +11,7 @@
 .ende
 
 CmdPitchBend:
+	mov	track.pitchBendPhase+x, a
 	call	readSeq
 	mov	track.pitchBendDelay+x, a
 	call	readSeq
@@ -26,7 +27,6 @@ PitchEnvShare:
 
 	; --- PitchBend‚ğ‚©‚¯‚éticks‚ğœ”‚ÉƒZƒbƒg
 +	mov	a, track.pitchBendSpan+x
-	dec	a
 
 	call	DivDuration
 
