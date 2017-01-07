@@ -946,7 +946,12 @@ InitSequenceData:
 	addw	ya, drumToneTablePtr
 	movw	drumToneTablePtr, ya
 	; 拡張音色テーブル位置の設定
-	mov	exToneTablePtr, #(_sizeof_stDrumTone * DRUM_NOTE_NUMS)
+	mov	a, [drumToneTablePtr+x]
+	mov	y, #_sizeof_stDrumTone
+	mul	ya
+	mov	exToneTablePtr, a
+	incw	drumToneTablePtr
+	movw	ya, drumToneTablePtr
 	clrc
 	addw	ya, exToneTablePtr
 	movw	exToneTablePtr, ya

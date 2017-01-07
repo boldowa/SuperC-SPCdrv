@@ -4060,9 +4060,10 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 		int i;
 		word dataptr;
 		word sub1, sub2;
+		byte drumLen;
 
 		dataptr = (2*TRACKS);
-		dataptr += DRUMTABLE_LEN*DRUM_NOTE_NUMS;
+		dataptr += drumTableCtr+1;
 		dataptr += toneTable.ptr;
 
 		/* ヘッダ作成 */
@@ -4107,7 +4108,9 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 		}
 
 		/* 波形定義テーブルの書き出し */
-		bindataadd(bin, drumTable, DRUMTABLE_LEN*DRUM_NOTE_NUMS);
+		drumLen = drumTableCtr/DRUMTABLE_LEN;
+		bindataadd(bin, &drumLen, 1);
+		bindataadd(bin, drumTable, drumTableCtr);
 		bindataadd(bin, (const byte*)toneTable.data, toneTable.ptr);
 
 		/* 変換データのまとめこみ */
