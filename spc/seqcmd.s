@@ -109,7 +109,8 @@ _SubCmdTable:
 	.dw	CmdSetSL			; arg: 1
 	.dw	CmdSetSR			; arg: 1
 	.dw	CmdSetRR			; arg: 1
-	.dw	CmdSetGain			; arg: 1
+	.dw	CmdSetGain1			; arg: 1
+	.dw	CmdSetGain2			; arg: 1
 	.dw	CmdSpwavFreq			; arg: 1
 
 

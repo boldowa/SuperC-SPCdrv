@@ -15,7 +15,7 @@
 .bank 2 slot 2
 .orga __CODE_START__ - 34
 	.db	"VER "
-	.db	$00, $85
+	.db	$00, $90
 	.db	"DIR "
 	.dw	DirTbl
 	.db	"ESA "
@@ -97,6 +97,9 @@ _EndInitDSP:
 	mov	seqBaseAddress+1, a
 
 	call	InitSequenceData
+
+	; SuperSaw書き換え位置の初期設定を行います
+	mov	specialWavPtr, #1
 
 ; タイマレジスタの初期設定を行います
 +	mov	SPC_TIMER0,	#TIMER				; タイマー周期をセットします

@@ -34,8 +34,8 @@ LDFLAGS	:= -lz
 ifdef DEBUG
 CFLAGS	= -Wall -g -O0 -DDEBUG
 else
-CFLAGS	= -Wall -O2 -s
-LDFLAGS	+= -s
+CFLAGS	= -Wall -O2
+LDFLAGS	+= -s -Wl,--gc-sections -Wl,--discard-all
 endif
 
 ifdef WIN32

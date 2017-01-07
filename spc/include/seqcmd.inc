@@ -24,7 +24,7 @@
 ; Drum note numbers
 ;------------------------------------------------
 .define DRUM_NOTE	REST + 1
-.define DRUM_NOTE_NUMS	7
+.define DRUM_NOTE_NUMS	10
 
 ;------------------------------------------------
 ; TONE Settings
@@ -95,7 +95,8 @@
 	SCMD_SET_SL			db
 	SCMD_SET_SR			db
 	SCMD_SET_RR			db
-	SCMD_SET_GAIN			db
+	SCMD_SET_GAIN1			db
+	SCMD_SET_GAIN2			db
 	SCMD_SPWAV_FREQ			db
 .ende
 

@@ -62,9 +62,14 @@ CmdSetRR:
 	mov	track.rr+x, a
 	ret
 
-CmdSetGain:
+CmdSetGain1:
 	call	readSeq
 	mov	track.sr+x, a
+	ret
+
+CmdSetGain2:
+	call	readSeq
+	mov	track.rr+x, a
 	ret
 
 

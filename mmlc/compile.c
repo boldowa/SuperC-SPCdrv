@@ -43,7 +43,7 @@
 #define TIE  ((12*OCTAVE_RANGE) | 0x80)
 #define REST (TIE + 1)
 #define DRUM_NOTE (REST + 1)
-#define DRUM_NOTE_NUMS 7
+#define DRUM_NOTE_NUMS 10
 enum commandlist{
 	/* ※注 : SuperCのinclude/seqcmd.inc 内の */
 	/*        コマンド定義順に合わせること    */
@@ -94,7 +94,8 @@ enum subcommandlist{
 	SCMD_SET_SL,
 	SCMD_SET_SR,
 	SCMD_SET_RR,
-	SCMD_SET_GAIN,
+	SCMD_SET_GAIN1,
+	SCMD_SET_GAIN2,
 	SCMD_SPWAV_FREQ,
 
 	SCMD_NOT_FOUND
@@ -119,7 +120,8 @@ static struct {
 	{ SCMD_SET_SL,			1 },
 	{ SCMD_SET_SR,			1 },
 	{ SCMD_SET_RR,			1 },
-	{ SCMD_SET_GAIN,		1 },
+	{ SCMD_SET_GAIN1,		1 },
+	{ SCMD_SET_GAIN2,		1 },
 	{ SCMD_SPWAV_FREQ,		1 },
 	/*---------------------------------*/
 	{ SCMD_NOT_FOUND,		-1 }
@@ -138,7 +140,6 @@ typedef enum{
  * 音階テーブル
  */
 static const byte SCALE_TABLE[] = {9, 11, 0, 2, 4, 5, 7};
-static const byte DRUM_TABLE[] = {5, 6, 0, 1, 2, 3, 4};
 
 /**
  * 異常状態フラグ
@@ -1308,10 +1309,29 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 			case 'e':
 			case 'f':
 			case 'g':
+			case 'h':
+			case 'i':
+			case 'j':
 			case 'r':
 			case '^':
 				{
 					byte note;
+
+					if(false == tracks.drumPart[tracks.curTrack])
+					{
+						switch(readValue)
+						{
+							case 'h':
+							case 'i':
+							case 'j':
+								newError(mml, compileErr, compileErrList);
+								compileErr->type = SyntaxError;
+								compileErr->level = ERR_ERROR;
+								sprintf(compileErr->message, "This track isn't drum mode(%c).", readValue);
+								addError(compileErr, compileErrList);
+								break;
+						}
+					}
 
 					if('r' == readValue)
 					{
@@ -1398,7 +1418,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 						}
 						else
 						{
-							note = DRUM_TABLE[(readValue - 'a')] + DRUM_NOTE;
+							note = (readValue - 'a') + DRUM_NOTE;
 						}
 					}
 
@@ -2671,7 +2691,7 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 							sprintf(compileErr->message, "Change GAIN");
 							addError(compileErr, compileErrList);
 
-							if(2 != getNumbers(mml, false, tempVal, compileErrList))
+							if(3 != getNumbers(mml, false, tempVal, compileErrList))
 							{
 								newError(mml, compileErr, compileErrList);
 								compileErr->type = SyntaxError;
@@ -2681,8 +2701,8 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 								continue;
 							}
 
-							gmode = tempVal[0];
-							gval = tempVal[1];
+							gmode = tempVal[1];
+							gval = tempVal[2];
 
 							switch(gmode)
 							{
@@ -2703,7 +2723,14 @@ ErrorNode* compile(MmlMan* mml, BinMan *bin, stBrrListData** bl)
 									break;
 							}
 
-							putSubCommand(&tracks, SCMD_SET_GAIN, loopDepth, mml, compileErr);
+							if(tempVal[0] == 0)	/* gain type */
+							{
+								putSubCommand(&tracks, SCMD_SET_GAIN1, loopDepth, mml, compileErr);
+							}
+							else
+							{
+								putSubCommand(&tracks, SCMD_SET_GAIN2, loopDepth, mml, compileErr);
+							}
 							putSeq(&tracks, gain, loopDepth, mml, compileErr);
 						}
 						break;
