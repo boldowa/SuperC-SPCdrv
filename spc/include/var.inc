@@ -19,8 +19,7 @@
 
 ;-- spc engine
 .define SND_TEMPO            56
-;.define MUSIC_TEMPO_DEFAULT  54
-.define MUSIC_TEMPO_DEFAULT  10
+.define MUSIC_TEMPO_DEFAULT  60
 .define SPECIAL_WAV_FREQ 12
 
 .endif

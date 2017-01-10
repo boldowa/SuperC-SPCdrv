@@ -74,8 +74,8 @@ CmdLengthTable:
 	.db	0	; CmdEchoOff
 	.db	0	; CmdPortamentoOn
 	.db	0	; CmdPortamentoOff
-	.db	0	; CmdCmdCall(Arg:0)
-	.db	1	; CmdCmdCall(Arg:1)
+	.db	1	; CmdCmdCall(Arg:0)
+	.db	2	; CmdCmdCall(Arg:1)
 
 ;--------------------------------------------------
 ; Sub Command

@@ -1017,9 +1017,9 @@ InitSequenceData:
 	bmi	-
 
 	; 全体データの初期化
-	mov	musicTempo, #MUSIC_TEMPO_DEFAULT		; 音楽テンポの初期値をセットします
 	mov	musicGlobalVolume, a
-	mov	musicTempo, #60
+	mov	musicTempo, #MUSIC_TEMPO_DEFAULT		; 音楽テンポの初期値をセットします
+	mov	musicTempoLo, #0
 	mov	eVolRatio, #0
 	mov	specialWavFreq, #SPECIAL_WAV_FREQ
 
