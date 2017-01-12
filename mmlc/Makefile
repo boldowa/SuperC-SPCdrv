@@ -2,56 +2,70 @@
 # Makefile for SuperC mml compiler
 ############################################################
 
-#DEBUG	= 1
+### Compiler option
 CLANG	= 1
-WIN32	= 1
-x86	= 1
+
+### Platform option
+#WIN32	= 1
+#x86	= 1
+#ARM	= 1
+
+### Debug option
+#DEBUG	= 1
+
+############################################################
 
 TARGET	= mmlc
 
 ifdef CLANG
+	CC_PRG= clang
+	CXX_PRG= clang++
+else
+	CC_PRG= gcc
+	CXX_PRG= g++
+endif
+
 ifdef WIN32
-TARGET	:= $(TARGET).exe
-CC	:= i686-w64-mingw32-clang
-LD	:= i686-w64-mingw32-clang
+	BINPREFIX := .exe
+	PLATFORM_ := windows
+	CXXFLAGS += -DWIN32
+	CFLAGS += -DWIN32
+ifdef x86
+	PREFIX := i686-w64-mingw32-
+	CFLAGS += -Dx86
+	LDFLAGS += -m32
 else
-CC	:= clang
-LD	:= clang
+	PREFIX := x86_64-w64-mingw32-
 endif
+else ifdef ARM
+	PREFIX := arm-linux-gnueabihf-
+endif
+
+CC		:= $(PREFIX)$(CC_PRG)
+CXX		:= $(PREFIX)$(CXX_PRG)
+
+OBJCOPY		:= $(PREFIX)objcopy
+ifdef x86
+OBJFLAGS = -I binary -O elf32-i386 -B i386
+else ifdef ARM
+OBJFLAGS = -I binary -O elf32-littlearm -B arm
 else
-ifdef WIN32
-TARGET	:= $(TARGET).exe
-CC	:= i686-w64-mingw32-gcc
-LD	:= i686-w64-mingw32-gcc
-else
-CC	:= gcc
-LD	:= gcc
+OBJFLAGS = -I binary -O elf64-x86-64 -B i386
 endif
-endif
+
 
 LDFLAGS	:= -lz
 
 ifdef DEBUG
-CFLAGS	= -Wall -g -O0 -DDEBUG
+CFLAGS	+= -Wall -g -O0 -DDEBUG
 else
-CFLAGS	= -Wall -O2
+CFLAGS	+= -Wall -O2
 LDFLAGS	+= -s -Wl,--gc-sections -Wl,--discard-all
 endif
 
 ifdef WIN32
-CFLAGS += -D_WIN32 -I../../zlib-1.2.8
-LDFLAGS += -D_WIN32 -L../../zlib-1.2.8
-OBJCOPY	:= i686-w64-mingw32-objcopy
-else
-OBJCOPY	:= objcopy
-endif
-
-ifdef x86
-CFLAGS += -m32
-LDFLAGS += -m32
-OBJFLAGS = -I binary -O elf32-i386 -B i386
-else
-OBJFLAGS = -I binary -O elf64-x86-64 -B i386
+CFLAGS += -I../../zlib-1.2.8
+LDFLAGS += -L../../zlib-1.2.8
 endif
 
 #LDFLAGS	= -Wl,--gc-sections -Wl,--no-define-common -Wl,--discard-all
@@ -61,10 +75,10 @@ OFILES	+= md5.o snes.o
 PRECOMPILE_HEADER = gstdafx.h
 
 .PHONY: all clean
-all: $(TARGET)
+all: $(TARGET)$(BINPREFIX)
 
-$(TARGET): $(PRECOMPILE_HEADER).gch $(OFILES) Makefile
-	$(LD) $(OFILES) $(LDFLAGS) -o $@
+$(TARGET)$(BINPREFIX): $(PRECOMPILE_HEADER).gch $(OFILES) Makefile
+	$(CC) $(OFILES) $(LDFLAGS) -o $@
 
 
 .SUFFIXES: .c .o
@@ -84,7 +98,7 @@ $(PRECOMPILE_HEADER).gch: $(PRECOMPILE_HEADER)
 	$(CC) $(CFLAGS) $<
 
 clean:
-	rm -f $(TARGET) $(OFILES) $(OFILES:.o=.d) $(PRECOMPILE_HEADER).gch snes.bin
+	rm -f $(TARGET)$(BINPREFIX) $(OFILES) $(OFILES:.o=.d) $(PRECOMPILE_HEADER).gch snes.bin
 
 -include *.d
 

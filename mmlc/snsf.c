@@ -15,8 +15,17 @@
 /**
  * snesバイナリーデータポインタ
  */
+#ifdef x86
 extern char binary_snes_bin_start;
 extern char binary_snes_bin_size;
+#define BIN_START binary_snes_bin_start
+#define BIN_SIZE binary_snes_bin_size
+#else
+extern char _binary_snes_bin_start;
+extern char _binary_snes_bin_size;
+#define BIN_START _binary_snes_bin_start
+#define BIN_SIZE _binary_snes_bin_size
+#endif
 
 
 /* チェックサムの計算 */
@@ -80,8 +89,8 @@ int buildSnes(byte* snes, stSpcCore* core, MmlMan* mml, BinMan* seq, stBrrListDa
 
 	int snesSeqLoc;
 
-	snesStart = (byte*)&binary_snes_bin_start;
-	snesLen = (int)&binary_snes_bin_size;
+	snesStart = (byte*)&BIN_START;
+	snesLen = (int)&BIN_SIZE;
 
 	/* データ書き込み用テーブル初期化 */
 	brrSetNumberTable = &snes[0x8000];
