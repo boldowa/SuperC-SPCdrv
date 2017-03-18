@@ -102,6 +102,9 @@
 	PAGE0TAIL                   db
 ;----------------------------------------
 .ende
+	.printt "PAGE0 TAIL: 0x"
+	.printv HEX PAGE0TAIL-1
+	.printt "\n"
 
 
 ;------------------------------

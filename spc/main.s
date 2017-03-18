@@ -99,7 +99,7 @@ _EndInitDSP:
 	call	InitSequenceData
 
 	; SuperSaw書き換え位置の初期設定を行います
-	mov	specialWavPtr, #1
+	mov	specialWavPtr, #SPWAV_MIN
 
 ; タイマレジスタの初期設定を行います
 +	mov	SPC_TIMER0,	#TIMER				; タイマー周期をセットします

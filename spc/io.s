@@ -49,8 +49,9 @@ _jmpTable:
 	.dw   setMusicVolume                  ; 04h ... 音楽音量調整
 	.dw   setSoundVolume                  ; 05h ... 効果音音量調整
 	.dw   switchStereoMono                ; 06h ... ステレオ・モノラル切替
-	.dw   NULL                            ; 07h ...
-	.dw   NULL                            ; 08h ... 
+	.dw   DspWrite                        ; 07h ...
+	.dw   SpcWrite                        ; 08h ... 
+	.dw   EchoTest                        ; 09h ... 
 .ends
 
 
@@ -275,6 +276,31 @@ switchStereoMono:
 	setc
 +	mov1	musicSysFlags.2, c
 	bra	_EndIOFunc
+;---------------------------------------
+; DSP WRITE Command
+;---------------------------------------
+DspWrite:
+	mov	SPC_REGADDR, SPC_PORT1
+	mov	SPC_REGDATA, SPC_PORT2
+	bra	_EndIOFunc
+;---------------------------------------
+; SPC WRITE Command
+;---------------------------------------
+SpcWrite:
+	mov	y, #0
+	mov	a, SPC_PORT3
+	mov	[SPC_PORT1]+y, a
+	bra	_EndIOFunc
+;---------------------------------------
+; Echo Test Command
+;---------------------------------------
+EchoTest:
+	mov	SPC_REGADDR, #DSP_KOF
+	mov	SPC_REGDATA, #$ff
+	mov	SPC_REGADDR, #DSP_FLG
+	mov	SPC_REGDATA, #(FLG_ECEN|FLG_MUTE)
+-	bra	-
+
 
 
 setMusicVolume:

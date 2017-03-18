@@ -56,31 +56,40 @@ SpecialWavFunc:
 	mov	a, specialWavPtr
 	lsr	a
 +	mov	x, a
-	mov	a, !SPWAV0+10+x
+	mov	a, !SPWAV0+9+x
 	bcc	+
 	eor	a, #$0f
 	bra	++
 +	eor	a, #$f0
-++	mov	!SPWAV0+10+x, a
+++	mov	!SPWAV0+9+x, a
+	inc	specialWavPtr
 	mov	a, specialWavPtr
-	inc	a
-	cmp	a, #16
+	mov	y, #0
+	mov	x, #18
+	div	ya, x
+	mov	a, y
 	bne	+
-	mov	a, #18
-	bra	++
-+	cmp	a, #33
-	bne	++
-	mov	a, #1
-++	mov	specialWavPtr, a
-	ret
+	inc	specialWavPtr
+	inc	specialWavPtr
+;	bra	++
++	mov	a, specialWavPtr
+	cmp	a, #SPWAV_MAX
+	bmi	++
+	mov	a, #SPWAV_MIN
+	mov	specialWavPtr, a
+++	ret
 
 .define SPWAVN 1
 
 .if SPWAVN == 1
 SPWAV0:
 	.db	$02, $00, $00, $00, $00, $00, $00, $00, $00
+	.db	$b2, $78, $88, $88, $88, $88, $88, $88, $88
+	.db	$b2, $88, $88, $88, $88, $88, $88, $88, $88
 	.db	$b2, $77, $77, $77, $77, $77, $77, $77, $77
-	.db	$b3, $99, $99, $99, $99, $99, $99, $99, $99
+	.db	$b3, $77, $77, $77, $77, $77, $77, $77, $78
+;	.db	$b2, $88, $88, $88, $88, $88, $88, $88, $88
+;	.db	$b3, $88, $88, $88, $88, $88, $88, $88, $88
 .endif
 
 .if SPWAVN == 2
@@ -89,6 +98,8 @@ SPWAV0:
 SPWAV0:
 	.db	$02, $00, $00, $00, $00, $00, $00, $00, $00
 	.db	$b2, $00, $11, $22, $33, $44, $55, $66, $77
+	.db	$b2, $00, $11, $22, $33, $44, $55, $66, $77
+	.db	$b2, $88, $99, $aa, $bb, $cc, $dd, $ee, $ff
 	.db	$b3, $88, $99, $aa, $bb, $cc, $dd, $ee, $ff
 .endif
 
@@ -97,6 +108,8 @@ SPWAV0:
 SPWAV0:
 	.db	$02, $00, $00, $00, $00, $00, $00, $00, $00
 	.db	$c2, $01, $23, $45, $67, $76, $54, $32, $10
+	.db	$c2, $01, $23, $45, $67, $76, $54, $32, $10
+	.db	$c2, $fe, $dc, $ba, $98, $89, $ab, $cd, $ef
 	.db	$c3, $fe, $dc, $ba, $98, $89, $ab, $cd, $ef
 .endif
 

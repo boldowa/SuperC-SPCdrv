@@ -133,24 +133,24 @@ ReleaseChannel:
 	mov	a, #$ff			;\ 割り当て解除
 	mov	buf_chData.allocTrack+x, a	;/
 	pop	x
-	mov	a, !ChBitTable+x	;\  keyoff
-	push	a
-	or	a, buf_keyoff		; |
+	mov	a, !ChBitTable+x	; * ch bit情報取得
+;	mov	x, a			; * 後のフラグクリア処理の為に保存
+	or	a, buf_keyoff		;\  KeyOff
 	mov	buf_keyoff, a		;/
-	pop	a
 
-	eor	a, #$ff
-	mov	x, a
-	and	a, buf_echo
-	mov	buf_echo, a
-
-	mov	a, x
-	and	a, buf_noise
-	mov	buf_noise, a
-
-	mov	a, x
-	and	a, buf_pm
-	mov	buf_pm, a
+;	mov	a, x
+;	eor	a, #$ff			;\
+;	mov	x, a			; |
+;	and	a, buf_echo		; | これらの処理は、ch解放と共に
+;	mov	buf_echo, a		; | ビットクリアを行う処理
+					; |
+;	mov	a, x			; | KuronekoSPCの見た目の為にフラグクリアをしていましたが
+;	and	a, buf_noise		; | クリックノイズを誘発する為、v0.93より
+;	mov	buf_noise, a		; | 無効化されています。
+					; |
+;	mov	a, x			; |
+;	and	a, buf_pm		; |
+;	mov	buf_pm, a		;/
 _RetChAlloc:
 	mov	a, y			;\ 解析中Trackインデックスを復元
 	mov	x, a			;/
